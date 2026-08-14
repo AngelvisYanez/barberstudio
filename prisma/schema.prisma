@@ -1,0 +1,36 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CategoryType {
+  INCOME
+  BUSINESS_EXPENSE
+  OWNER_DRAW
+}
+
+model Category {
+  id           String        @id @default(cuid())
+  name         String
+  type         CategoryType
+  transactions Transaction[]
+
+  @@unique([name, type])
+}
+
+model Transaction {
+  id          String   @id @default(cuid())
+  amount      Decimal  @db.Decimal(12, 2)
+  date        DateTime @default(now())
+  description String?
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@index([date])
+  @@index([categoryId])
+}
