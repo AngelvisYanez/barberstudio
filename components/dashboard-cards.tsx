@@ -5,27 +5,33 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { MonthlyBalance } from "@/actions/transactions";
+import type { BalanceSummary } from "@/actions/transactions";
 import { formatMoney } from "@/lib/money";
 
-export function DashboardCards({ balance }: { balance: MonthlyBalance }) {
+export function DashboardCards({
+  balance,
+  period = "mensual",
+}: {
+  balance: BalanceSummary;
+  period?: string;
+}) {
   return (
-    <div className="grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-linear-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs @xl/main:grid-cols-2 @5xl/main:grid-cols-4 lg:px-6 dark:*:data-[slot=card]:bg-card">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 *:data-[slot=card]:bg-linear-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs dark:*:data-[slot=card]:bg-card">
       <Card className="@container/card">
         <CardHeader>
-          <CardDescription>Ingreso mensual</CardDescription>
+          <CardDescription>Ingreso {period}</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
             {formatMoney(balance.income)}
           </CardTitle>
         </CardHeader>
         <CardFooter className="text-sm text-muted-foreground">
-          Cortes, combos y productos del mes
+          Cortes, combos y productos
         </CardFooter>
       </Card>
 
       <Card className="@container/card">
         <CardHeader>
-          <CardDescription>Gasto operativo mensual</CardDescription>
+          <CardDescription>Gasto operativo {period}</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
             {formatMoney(balance.businessExpense)}
           </CardTitle>
@@ -37,7 +43,7 @@ export function DashboardCards({ balance }: { balance: MonthlyBalance }) {
 
       <Card className="@container/card">
         <CardHeader>
-          <CardDescription>Balance neto</CardDescription>
+          <CardDescription>Balance neto {period}</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
             {formatMoney(balance.netOperating)}
           </CardTitle>
@@ -49,7 +55,7 @@ export function DashboardCards({ balance }: { balance: MonthlyBalance }) {
 
       <Card className="@container/card">
         <CardHeader>
-          <CardDescription>Retiros personales</CardDescription>
+          <CardDescription>Retiros personales {period}</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
             {formatMoney(balance.ownerDraw)}
           </CardTitle>

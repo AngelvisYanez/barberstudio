@@ -30,14 +30,18 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-export function IncomeExpenseChart({ data }: { data: DayComparison[] }) {
+export function IncomeExpenseChart({
+  data,
+  description = "Últimos 7 días (solo finanzas operativas)",
+}: {
+  data: DayComparison[];
+  description?: string;
+}) {
   return (
     <Card className="@container/card">
       <CardHeader>
         <CardTitle>Ingresos vs gastos</CardTitle>
-        <CardDescription>
-          Últimos 7 días (solo finanzas operativas)
-        </CardDescription>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent className="px-2 pt-2 sm:px-6 sm:pt-4">
         <ChartContainer config={chartConfig} className="aspect-auto h-[260px] w-full">

@@ -2,13 +2,19 @@
 
 import { CategoryType, Prisma } from "@prisma/client";
 import {
+  addDays,
+  differenceInDays,
   endOfDay,
   endOfMonth,
+  endOfYear,
   format,
   startOfDay,
   startOfMonth,
+  startOfYear,
   subDays,
 } from "date-fns";
+import type { Locale } from "date-fns";
+import { es } from "date-fns/locale";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -40,11 +46,14 @@ export type SerializedTransaction = {
   };
 };
 
-export type MonthlyBalance = {
+export type BalanceSummary = {
   income: number;
   businessExpense: number;
   ownerDraw: number;
   netOperating: number;
+};
+
+export type MonthlyBalance = BalanceSummary & {
   year: number;
   month: number;
 };
@@ -54,6 +63,14 @@ export type DayComparison = {
   label: string;
   income: number;
   businessExpense: number;
+};
+
+export type ComparisonPoint = {
+  key: string;
+  label: string;
+  income: number;
+  businessExpense: number;
+  ownerDraw: number;
 };
 
 function decimalToNumber(value: Prisma.Decimal | number): number {
@@ -143,21 +160,29 @@ export async function getTodayTransactions(
   return transactions.map(serializeTransaction);
 }
 
-export async function getMonthlyBalance(
-  year?: number,
-  month?: number,
-): Promise<MonthlyBalance> {
-  const now = new Date();
-  const targetYear = year ?? now.getFullYear();
-  // month is 1-12 for callers; Date uses 0-11
-  const targetMonthIndex = (month ?? now.getMonth() + 1) - 1;
-  const anchor = new Date(targetYear, targetMonthIndex, 1);
-  const from = startOfMonth(anchor);
-  const to = endOfMonth(anchor);
+export async function getTransactionsInRange(
+  from: Date,
+  to: Date,
+  types?: CategoryType[],
+): Promise<SerializedTransaction[]> {
+  const transactions = await prisma.transaction.findMany({
+    where: {
+      date: { gte: startOfDay(from), lte: endOfDay(to) },
+      ...(types?.length
+        ? { category: { type: { in: types } } }
+        : undefined),
+    },
+    include: { category: true },
+    orderBy: { date: "desc" },
+  });
 
+  return transactions.map(serializeTransaction);
+}
+
+async function computeBalance(from: Date, to: Date): Promise<BalanceSummary> {
   const grouped = await prisma.transaction.groupBy({
     by: ["categoryId"],
-    where: { date: { gte: from, lte: to } },
+    where: { date: { gte: startOfDay(from), lte: endOfDay(to) } },
     _sum: { amount: true },
   });
 
@@ -187,6 +212,32 @@ export async function getMonthlyBalance(
     businessExpense,
     ownerDraw,
     netOperating: income - businessExpense,
+  };
+}
+
+export async function getBalanceInRange(
+  from: Date,
+  to: Date,
+): Promise<BalanceSummary> {
+  return computeBalance(from, to);
+}
+
+export async function getMonthlyBalance(
+  year?: number,
+  month?: number,
+): Promise<MonthlyBalance> {
+  const now = new Date();
+  const targetYear = year ?? now.getFullYear();
+  // month is 1-12 for callers; Date uses 0-11
+  const targetMonthIndex = (month ?? now.getMonth() + 1) - 1;
+  const anchor = new Date(targetYear, targetMonthIndex, 1);
+  const from = startOfMonth(anchor);
+  const to = endOfMonth(anchor);
+
+  const summary = await computeBalance(from, to);
+
+  return {
+    ...summary,
     year: targetYear,
     month: targetMonthIndex + 1,
   };
@@ -238,4 +289,143 @@ export async function getLast7DaysComparison(): Promise<DayComparison[]> {
   }
 
   return days;
+}
+
+type AmountRow = { amount: number; date: Date; type: CategoryType };
+
+async function fetchAmounts(from: Date, to: Date): Promise<AmountRow[]> {
+  const rows = await prisma.transaction.findMany({
+    where: {
+      date: { gte: startOfDay(from), lte: endOfDay(to) },
+      category: {
+        type: {
+          in: [
+            CategoryType.INCOME,
+            CategoryType.BUSINESS_EXPENSE,
+            CategoryType.OWNER_DRAW,
+          ],
+        },
+      },
+    },
+    select: {
+      amount: true,
+      date: true,
+      category: { select: { type: true } },
+    },
+  });
+
+  return rows.map((row) => ({
+    amount: decimalToNumber(row.amount),
+    date: row.date,
+    type: row.category.type,
+  }));
+}
+
+function emptyPoint(key: string, label: string): ComparisonPoint {
+  return { key, label, income: 0, businessExpense: 0, ownerDraw: 0 };
+}
+
+function addToBucket(
+  bucket: ComparisonPoint,
+  type: CategoryType,
+  amount: number,
+) {
+  if (type === CategoryType.INCOME) bucket.income += amount;
+  else if (type === CategoryType.BUSINESS_EXPENSE) {
+    bucket.businessExpense += amount;
+  } else if (type === CategoryType.OWNER_DRAW) bucket.ownerDraw += amount;
+}
+
+async function bucketByDay(
+  from: Date,
+  to: Date,
+  labelFormat: string,
+  locale?: Locale,
+): Promise<ComparisonPoint[]> {
+  const start = startOfDay(from);
+  const totalDays = differenceInDays(startOfDay(to), start) + 1;
+
+  const points: ComparisonPoint[] = [];
+  const byKey = new Map<string, ComparisonPoint>();
+
+  for (let i = 0; i < totalDays; i += 1) {
+    const day = addDays(start, i);
+    const key = format(day, "yyyy-MM-dd");
+    const point = emptyPoint(
+      key,
+      locale ? format(day, labelFormat, { locale }) : format(day, labelFormat),
+    );
+    points.push(point);
+    byKey.set(key, point);
+  }
+
+  const amounts = await fetchAmounts(from, to);
+  for (const row of amounts) {
+    const bucket = byKey.get(format(row.date, "yyyy-MM-dd"));
+    if (bucket) addToBucket(bucket, row.type, row.amount);
+  }
+
+  return points;
+}
+
+export async function getDayComparison(
+  from: Date,
+  to: Date,
+): Promise<ComparisonPoint[]> {
+  return bucketByDay(from, to, "EEE dd", es);
+}
+
+export async function getMonthComparison(
+  year: number,
+): Promise<ComparisonPoint[]> {
+  const from = startOfYear(new Date(year, 0, 1));
+  const to = endOfYear(new Date(year, 0, 1));
+
+  const points: ComparisonPoint[] = [];
+  const byKey = new Map<string, ComparisonPoint>();
+
+  for (let m = 0; m < 12; m += 1) {
+    const month = new Date(year, m, 1);
+    const key = format(month, "yyyy-MM");
+    const point = emptyPoint(key, format(month, "MMM", { locale: es }));
+    points.push(point);
+    byKey.set(key, point);
+  }
+
+  const amounts = await fetchAmounts(from, to);
+  for (const row of amounts) {
+    const bucket = byKey.get(format(row.date, "yyyy-MM"));
+    if (bucket) addToBucket(bucket, row.type, row.amount);
+  }
+
+  return points;
+}
+
+export async function getYearComparison(): Promise<ComparisonPoint[]> {
+  const aggregate = await prisma.transaction.aggregate({
+    _min: { date: true },
+    _max: { date: true },
+  });
+
+  const minDate = aggregate._min.date;
+  const maxDate = aggregate._max.date;
+  if (!minDate || !maxDate) return [];
+
+  const points: ComparisonPoint[] = [];
+  const byKey = new Map<string, ComparisonPoint>();
+
+  for (let y = minDate.getFullYear(); y <= maxDate.getFullYear(); y += 1) {
+    const key = String(y);
+    const point = emptyPoint(key, key);
+    points.push(point);
+    byKey.set(key, point);
+  }
+
+  const amounts = await fetchAmounts(minDate, maxDate);
+  for (const row of amounts) {
+    const bucket = byKey.get(String(row.date.getFullYear()));
+    if (bucket) addToBucket(bucket, row.type, row.amount);
+  }
+
+  return points;
 }

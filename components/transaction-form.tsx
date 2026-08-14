@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useRef, useState, useTransition } from "react";
+import { format } from "date-fns";
 import { toast } from "sonner";
 import type { Category, CategoryType } from "@prisma/client";
 
-import { createTransaction } from "@/actions/transactions";
+import { createTransaction, type CreateTransactionInput } from "@/actions/transactions";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -53,13 +54,19 @@ export function TransactionForm({
   function onSubmit(formData: FormData) {
     const amount = Number(formData.get("amount"));
     const descriptionValue = String(formData.get("description") ?? "");
+    const dateValue = String(formData.get("date") ?? "");
+
+    const input: CreateTransactionInput = {
+      amount,
+      categoryId,
+      description: descriptionValue,
+      ...(dateValue
+        ? { date: new Date(`${dateValue}T00:00:00`) }
+        : {}),
+    };
 
     startTransition(async () => {
-      const result = await createTransaction({
-        amount,
-        categoryId,
-        description: descriptionValue,
-      });
+      const result = await createTransaction(input);
 
       if (!result.success) {
         toast.error(result.error);
@@ -102,6 +109,17 @@ export function TransactionForm({
           </div>
 
           <div className="grid gap-2">
+            <Label htmlFor="date">Fecha</Label>
+            <Input
+              id="date"
+              name="date"
+              type="date"
+              defaultValue={format(new Date(), "yyyy-MM-dd")}
+              className="h-11"
+            />
+          </div>
+
+          <div className="grid gap-2">
             <Label htmlFor="category">Categoría</Label>
             <Select
               items={selectItems}
@@ -140,7 +158,7 @@ export function TransactionForm({
             />
           </div>
 
-          <div className="flex items-end">
+          <div className="flex items-end sm:col-span-2 lg:col-span-4">
             <Button
               type="submit"
               disabled={pending || !categoryId}

@@ -5,6 +5,7 @@ import type { SerializedTransaction } from "@/actions/transactions";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -23,21 +24,26 @@ import { categoryTypeLabel, formatMoney } from "@/lib/money";
 type Props = {
   transactions: SerializedTransaction[];
   title?: string;
+  description?: string;
   emptyMessage?: string;
+  actions?: React.ReactNode;
 };
 
 export function TransactionsTable({
   transactions,
   title = "Movimientos de hoy",
+  description,
   emptyMessage = "Aún no hay movimientos registrados hoy.",
+  actions,
 }: Props) {
   return (
     <Card>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
         <CardDescription>
-          {format(new Date(), "EEEE d 'de' MMMM", { locale: es })}
+          {description ?? format(new Date(), "EEEE d 'de' MMMM", { locale: es })}
         </CardDescription>
+        {actions ? <CardAction>{actions}</CardAction> : null}
       </CardHeader>
       <CardContent>
         {transactions.length === 0 ? (
@@ -49,7 +55,7 @@ export function TransactionsTable({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Hora</TableHead>
+                  <TableHead>Fecha</TableHead>
                   <TableHead>Monto</TableHead>
                   <TableHead>Categoría</TableHead>
                   <TableHead className="hidden sm:table-cell">Tipo</TableHead>
@@ -60,7 +66,7 @@ export function TransactionsTable({
                 {transactions.map((transaction) => (
                   <TableRow key={transaction.id}>
                     <TableCell className="tabular-nums">
-                      {format(new Date(transaction.date), "HH:mm")}
+                      {format(new Date(transaction.date), "dd/MM HH:mm")}
                     </TableCell>
                     <TableCell className="font-medium tabular-nums">
                       {formatMoney(transaction.amount)}

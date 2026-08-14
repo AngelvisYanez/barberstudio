@@ -1,11 +1,18 @@
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { getSession } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
-export default function AppLayout({
+export default async function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const user = await getSession();
+  if (!user) {
+    redirect("/login");
+  }
+
   return (
     <SidebarProvider
       style={
@@ -15,7 +22,7 @@ export default function AppLayout({
         } as React.CSSProperties
       }
     >
-      <AppSidebar variant="inset" />
+      <AppSidebar variant="inset" user={user} />
       <SidebarInset>{children}</SidebarInset>
     </SidebarProvider>
   );

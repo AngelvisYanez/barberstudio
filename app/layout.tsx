@@ -18,8 +18,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "BarberStudio",
-  description: "Gestión financiera de barbería: caja diaria y retiros personales",
+  title: "Barber Studio",
+  description:
+    "Gestión integral de barbería: caja, citas, clientes, inventario y administración",
+  icons: {
+    icon: "/logo-barberstudio.jpg",
+    apple: "/logo-barberstudio.jpg",
+  },
 };
 
 export default function RootLayout({

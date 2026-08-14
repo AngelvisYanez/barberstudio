@@ -1,0 +1,65 @@
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { jwtVerify } from "jose";
+
+const SESSION_COOKIE = "barberstudio_session";
+
+const publicPaths = ["/login"];
+
+function getSecret() {
+  const secret = process.env.AUTH_SECRET;
+  if (!secret) return null;
+  return new TextEncoder().encode(secret);
+}
+
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  if (
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/favicon") ||
+    pathname.includes(".")
+  ) {
+    return NextResponse.next();
+  }
+
+  const isPublic = publicPaths.some(
+    (path) => pathname === path || pathname.startsWith(`${path}/`),
+  );
+
+  const token = request.cookies.get(SESSION_COOKIE)?.value;
+  const secret = getSecret();
+
+  let isAuthenticated = false;
+  let role: string | null = null;
+
+  if (token && secret) {
+    try {
+      const { payload } = await jwtVerify(token, secret);
+      isAuthenticated = typeof payload.id === "string";
+      role = typeof payload.role === "string" ? payload.role : null;
+    } catch {
+      isAuthenticated = false;
+    }
+  }
+
+  if (!isAuthenticated && !isPublic) {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("next", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  if (isAuthenticated && pathname === "/login") {
+    return NextResponse.redirect(new URL("/", request.url));
+  }
+
+  if (pathname.startsWith("/admin") && role !== "ADMIN") {
+    return NextResponse.redirect(new URL("/", request.url));
+  }
+
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: ["/((?!_next/static|_next/image).*)"],
+};
