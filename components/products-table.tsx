@@ -2,14 +2,20 @@
 
 import { useState, useTransition } from "react";
 import { format } from "date-fns";
-import { LoaderIcon, Trash2Icon } from "lucide-react";
+import { LoaderIcon, PencilIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 
 import {
   deleteProduct,
+  updateProduct,
   updateProductActive,
   type SerializedProduct,
+  type UpdateProductInput,
 } from "@/actions/products";
+import {
+  TablePagination,
+  useTablePagination,
+} from "@/components/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +25,18 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -31,11 +49,168 @@ import { formatMoney } from "@/lib/money";
 
 type Props = {
   products: SerializedProduct[];
+  canEdit?: boolean;
 };
 
-export function ProductsTable({ products }: Props) {
+function EditProductDrawer({ product }: { product: SerializedProduct }) {
+  const [pending, startTransition] = useTransition();
+  const formId = `edit-product-${product.id}`;
+
+  function onSubmit(formData: FormData) {
+    const costRaw = String(formData.get("costPrice") ?? "");
+    const stockRaw = String(formData.get("stock") ?? "");
+    const minStockRaw = String(formData.get("minStock") ?? "");
+
+    const input: UpdateProductInput = {
+      id: product.id,
+      name: String(formData.get("name") ?? ""),
+      sku: String(formData.get("sku") ?? ""),
+      salePrice: Number(formData.get("salePrice")),
+      description: String(formData.get("description") ?? ""),
+      ...(costRaw !== "" ? { costPrice: Number(costRaw) } : {}),
+      ...(stockRaw !== "" ? { stock: Number(stockRaw) } : {}),
+      ...(minStockRaw !== "" ? { minStock: Number(minStockRaw) } : {}),
+    };
+
+    startTransition(async () => {
+      const result = await updateProduct(input);
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Producto actualizado");
+    });
+  }
+
+  return (
+    <Drawer>
+      <DrawerTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="text-muted-foreground"
+            aria-label="Editar producto"
+          />
+        }
+      >
+        <PencilIcon className="size-3.5" />
+      </DrawerTrigger>
+      <DrawerContent>
+        <DrawerHeader className="gap-1">
+          <DrawerTitle>Editar producto</DrawerTitle>
+          <DrawerDescription>{product.name}</DrawerDescription>
+        </DrawerHeader>
+        <form
+          id={formId}
+          action={onSubmit}
+          className="grid gap-4 px-4 sm:grid-cols-2"
+        >
+          <div className="grid gap-2">
+            <Label htmlFor={`${formId}-name`}>Nombre</Label>
+            <Input
+              id={`${formId}-name`}
+              name="name"
+              defaultValue={product.name}
+              required
+              className="h-11"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor={`${formId}-sku`}>SKU (opcional)</Label>
+            <Input
+              id={`${formId}-sku`}
+              name="sku"
+              defaultValue={product.sku ?? ""}
+              className="h-11"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor={`${formId}-sale`}>Precio de venta</Label>
+            <Input
+              id={`${formId}-sale`}
+              name="salePrice"
+              type="number"
+              inputMode="decimal"
+              step="0.01"
+              min="0.01"
+              defaultValue={product.salePrice}
+              required
+              className="h-11"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor={`${formId}-cost`}>Costo</Label>
+            <Input
+              id={`${formId}-cost`}
+              name="costPrice"
+              type="number"
+              inputMode="decimal"
+              step="0.01"
+              min="0"
+              defaultValue={product.costPrice}
+              className="h-11"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor={`${formId}-stock`}>Stock</Label>
+            <Input
+              id={`${formId}-stock`}
+              name="stock"
+              type="number"
+              inputMode="numeric"
+              step="1"
+              min="0"
+              defaultValue={product.stock}
+              className="h-11"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor={`${formId}-min`}>Stock mínimo</Label>
+            <Input
+              id={`${formId}-min`}
+              name="minStock"
+              type="number"
+              inputMode="numeric"
+              step="1"
+              min="0"
+              defaultValue={product.minStock}
+              className="h-11"
+            />
+          </div>
+          <div className="grid gap-2 sm:col-span-2">
+            <Label htmlFor={`${formId}-description`}>Descripción</Label>
+            <Input
+              id={`${formId}-description`}
+              name="description"
+              defaultValue={product.description ?? ""}
+              className="h-11"
+            />
+          </div>
+        </form>
+        <DrawerFooter>
+          <Button
+            type="submit"
+            form={formId}
+            disabled={pending}
+            className="w-full"
+            size="lg"
+          >
+            {pending ? "Guardando..." : "Guardar cambios"}
+          </Button>
+          <DrawerClose render={<Button variant="outline" />}>
+            Cancelar
+          </DrawerClose>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
+  );
+}
+
+export function ProductsTable({ products, canEdit = false }: Props) {
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+  const pagination = useTablePagination(products);
 
   function handleToggleActive(product: SerializedProduct) {
     const nextActive = !product.active;
@@ -94,6 +269,7 @@ export function ProductsTable({ products }: Props) {
             Aún no hay productos registrados.
           </p>
         ) : (
+          <>
           <div className="overflow-x-auto rounded-lg border">
             <Table>
               <TableHeader>
@@ -114,7 +290,7 @@ export function ProductsTable({ products }: Props) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {products.map((product) => {
+                {pagination.pageItems.map((product) => {
                   const lowStock = product.stock <= product.minStock;
                   return (
                     <TableRow key={product.id}>
@@ -159,6 +335,9 @@ export function ProductsTable({ products }: Props) {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
+                          {canEdit ? (
+                            <EditProductDrawer product={product} />
+                          ) : null}
                           <Button
                             variant="outline"
                             size="sm"
@@ -190,6 +369,8 @@ export function ProductsTable({ products }: Props) {
               </TableBody>
             </Table>
           </div>
+          <TablePagination {...pagination} />
+          </>
         )}
       </CardContent>
     </Card>

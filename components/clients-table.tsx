@@ -10,6 +10,10 @@ import {
   updateClientActive,
   type SerializedClient,
 } from "@/actions/clients";
+import {
+  TablePagination,
+  useTablePagination,
+} from "@/components/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +39,7 @@ type Props = {
 export function ClientsTable({ clients }: Props) {
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+  const pagination = useTablePagination(clients);
 
   function handleToggleActive(client: SerializedClient) {
     const nextActive = !client.active;
@@ -91,6 +96,7 @@ export function ClientsTable({ clients }: Props) {
             Aún no hay clientes registrados.
           </p>
         ) : (
+          <>
           <div className="overflow-x-auto rounded-lg border">
             <Table>
               <TableHeader>
@@ -105,7 +111,7 @@ export function ClientsTable({ clients }: Props) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {clients.map((client) => (
+                {pagination.pageItems.map((client) => (
                   <TableRow key={client.id}>
                     <TableCell className="font-medium">{client.name}</TableCell>
                     <TableCell className="hidden sm:table-cell">
@@ -157,6 +163,8 @@ export function ClientsTable({ clients }: Props) {
               </TableBody>
             </Table>
           </div>
+          <TablePagination {...pagination} />
+          </>
         )}
       </CardContent>
     </Card>

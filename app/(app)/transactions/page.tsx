@@ -1,5 +1,7 @@
 import { CategoryType } from "@prisma/client";
 
+import { getProducts } from "@/actions/products";
+import { getServices } from "@/actions/services";
 import {
   getBalanceInRange,
   getCategories,
@@ -9,7 +11,10 @@ import { DashboardCards } from "@/components/dashboard-cards";
 import { DateRangeFilter } from "@/components/date-range-filter";
 import { ExportButtons } from "@/components/export-buttons";
 import { SiteHeader } from "@/components/site-header";
-import { TransactionForm } from "@/components/transaction-form";
+import {
+  TransactionForm,
+  type CatalogItemOption,
+} from "@/components/transaction-form";
 import { TransactionsTable } from "@/components/transactions-table";
 import { resolveDateRange } from "@/lib/date-range";
 import { buildExportUrl } from "@/lib/export-route";
@@ -32,14 +37,36 @@ export default async function TransactionsPage({
     rangeLabel,
   } = resolveDateRange(fromParam, toParam, "today");
 
-  const [categories, balance, transactions] = await Promise.all([
-    getCategories([CategoryType.INCOME, CategoryType.BUSINESS_EXPENSE]),
-    getBalanceInRange(fromDate, toDate),
-    getTransactionsInRange(fromDate, toDate, [
-      CategoryType.INCOME,
-      CategoryType.BUSINESS_EXPENSE,
-    ]),
-  ]);
+  const [categories, balance, transactions, services, products] =
+    await Promise.all([
+      getCategories([CategoryType.INCOME, CategoryType.BUSINESS_EXPENSE]),
+      getBalanceInRange(fromDate, toDate),
+      getTransactionsInRange(fromDate, toDate, [
+        CategoryType.INCOME,
+        CategoryType.BUSINESS_EXPENSE,
+      ]),
+      getServices(),
+      getProducts(),
+    ]);
+
+  const catalogItems: CatalogItemOption[] = [
+    ...services
+      .filter((service) => service.active)
+      .map((service) => ({
+        id: service.id,
+        name: service.name,
+        price: service.price,
+        kind: "service" as const,
+      })),
+    ...products
+      .filter((product) => product.active)
+      .map((product) => ({
+        id: product.id,
+        name: product.name,
+        price: product.salePrice,
+        kind: "product" as const,
+      })),
+  ];
 
   const exportBase = "/api/exports/transactions";
   const xlsxUrl = buildExportUrl(exportBase, {
@@ -63,6 +90,7 @@ export default async function TransactionsPage({
       <div className="flex flex-1 flex-col gap-4 p-4 md:gap-6 md:p-6">
         <TransactionForm
           categories={categories}
+          catalogItems={catalogItems}
           title="Registro rápido"
           description="Anota ingresos y gastos operativos entre cortes. Los retiros van en otra pantalla."
           submitLabel="Registrar"

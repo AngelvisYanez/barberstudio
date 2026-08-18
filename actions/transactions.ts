@@ -51,6 +51,7 @@ export type BalanceSummary = {
   businessExpense: number;
   ownerDraw: number;
   netOperating: number;
+  cashBalance: number;
 };
 
 export type MonthlyBalance = BalanceSummary & {
@@ -180,11 +181,19 @@ export async function getTransactionsInRange(
 }
 
 async function computeBalance(from: Date, to: Date): Promise<BalanceSummary> {
-  const grouped = await prisma.transaction.groupBy({
-    by: ["categoryId"],
-    where: { date: { gte: startOfDay(from), lte: endOfDay(to) } },
-    _sum: { amount: true },
-  });
+  const range = { gte: startOfDay(from), lte: endOfDay(to) };
+
+  const [grouped, payablePayments] = await Promise.all([
+    prisma.transaction.groupBy({
+      by: ["categoryId"],
+      where: { date: range },
+      _sum: { amount: true },
+    }),
+    prisma.accountPayablePayment.aggregate({
+      where: { paidAt: range },
+      _sum: { amount: true },
+    }),
+  ]);
 
   const categories = await prisma.category.findMany({
     where: { id: { in: grouped.map((row) => row.categoryId) } },
@@ -195,7 +204,6 @@ async function computeBalance(from: Date, to: Date): Promise<BalanceSummary> {
   );
 
   let income = 0;
-  let businessExpense = 0;
   let ownerDraw = 0;
 
   for (const row of grouped) {
@@ -203,15 +211,19 @@ async function computeBalance(from: Date, to: Date): Promise<BalanceSummary> {
     const sum = decimalToNumber(row._sum.amount ?? 0);
 
     if (type === CategoryType.INCOME) income += sum;
-    if (type === CategoryType.BUSINESS_EXPENSE) businessExpense += sum;
     if (type === CategoryType.OWNER_DRAW) ownerDraw += sum;
   }
+
+  const businessExpense = decimalToNumber(
+    payablePayments._sum.amount ?? 0,
+  );
 
   return {
     income,
     businessExpense,
     ownerDraw,
     netOperating: income - businessExpense,
+    cashBalance: income - businessExpense - ownerDraw,
   };
 }
 
@@ -247,18 +259,21 @@ export async function getLast7DaysComparison(): Promise<DayComparison[]> {
   const today = startOfDay(new Date());
   const from = subDays(today, 6);
   const to = endOfDay(today);
+  const range = { gte: from, lte: to };
 
-  const transactions = await prisma.transaction.findMany({
-    where: {
-      date: { gte: from, lte: to },
-      category: {
-        type: {
-          in: [CategoryType.INCOME, CategoryType.BUSINESS_EXPENSE],
-        },
+  const [transactions, payablePayments] = await Promise.all([
+    prisma.transaction.findMany({
+      where: {
+        date: range,
+        category: { type: CategoryType.INCOME },
       },
-    },
-    include: { category: true },
-  });
+      include: { category: true },
+    }),
+    prisma.accountPayablePayment.findMany({
+      where: { paidAt: range },
+      select: { amount: true, paidAt: true },
+    }),
+  ]);
 
   const days: DayComparison[] = [];
 
@@ -279,13 +294,14 @@ export async function getLast7DaysComparison(): Promise<DayComparison[]> {
     const key = format(transaction.date, "yyyy-MM-dd");
     const bucket = byDate.get(key);
     if (!bucket) continue;
+    bucket.income += decimalToNumber(transaction.amount);
+  }
 
-    const amount = decimalToNumber(transaction.amount);
-    if (transaction.category.type === CategoryType.INCOME) {
-      bucket.income += amount;
-    } else if (transaction.category.type === CategoryType.BUSINESS_EXPENSE) {
-      bucket.businessExpense += amount;
-    }
+  for (const payment of payablePayments) {
+    const key = format(payment.paidAt, "yyyy-MM-dd");
+    const bucket = byDate.get(key);
+    if (!bucket) continue;
+    bucket.businessExpense += decimalToNumber(payment.amount);
   }
 
   return days;
@@ -294,31 +310,42 @@ export async function getLast7DaysComparison(): Promise<DayComparison[]> {
 type AmountRow = { amount: number; date: Date; type: CategoryType };
 
 async function fetchAmounts(from: Date, to: Date): Promise<AmountRow[]> {
-  const rows = await prisma.transaction.findMany({
-    where: {
-      date: { gte: startOfDay(from), lte: endOfDay(to) },
-      category: {
-        type: {
-          in: [
-            CategoryType.INCOME,
-            CategoryType.BUSINESS_EXPENSE,
-            CategoryType.OWNER_DRAW,
-          ],
+  const range = { gte: startOfDay(from), lte: endOfDay(to) };
+
+  const [transactions, payablePayments] = await Promise.all([
+    prisma.transaction.findMany({
+      where: {
+        date: range,
+        category: {
+          type: {
+            in: [CategoryType.INCOME, CategoryType.OWNER_DRAW],
+          },
         },
       },
-    },
-    select: {
-      amount: true,
-      date: true,
-      category: { select: { type: true } },
-    },
-  });
+      select: {
+        amount: true,
+        date: true,
+        category: { select: { type: true } },
+      },
+    }),
+    prisma.accountPayablePayment.findMany({
+      where: { paidAt: range },
+      select: { amount: true, paidAt: true },
+    }),
+  ]);
 
-  return rows.map((row) => ({
-    amount: decimalToNumber(row.amount),
-    date: row.date,
-    type: row.category.type,
-  }));
+  return [
+    ...transactions.map((row) => ({
+      amount: decimalToNumber(row.amount),
+      date: row.date,
+      type: row.category.type,
+    })),
+    ...payablePayments.map((row) => ({
+      amount: decimalToNumber(row.amount),
+      date: row.paidAt,
+      type: CategoryType.BUSINESS_EXPENSE,
+    })),
+  ];
 }
 
 function emptyPoint(key: string, label: string): ComparisonPoint {

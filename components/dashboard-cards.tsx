@@ -43,25 +43,25 @@ export function DashboardCards({
 
       <Card className="@container/card">
         <CardHeader>
-          <CardDescription>Balance neto {period}</CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            {formatMoney(balance.netOperating)}
-          </CardTitle>
-        </CardHeader>
-        <CardFooter className="text-sm text-muted-foreground">
-          Ingresos − gastos operativos (sin retiros)
-        </CardFooter>
-      </Card>
-
-      <Card className="@container/card">
-        <CardHeader>
-          <CardDescription>Retiros personales {period}</CardDescription>
+          <CardDescription>Retiros {period}</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
             {formatMoney(balance.ownerDraw)}
           </CardTitle>
         </CardHeader>
         <CardFooter className="text-sm text-muted-foreground">
-          No afecta el balance operativo
+          Salen de caja igual que un gasto
+        </CardFooter>
+      </Card>
+
+      <Card className="@container/card">
+        <CardHeader>
+          <CardDescription>Balance en caja {period}</CardDescription>
+          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+            {formatMoney(balance.cashBalance)}
+          </CardTitle>
+        </CardHeader>
+        <CardFooter className="text-sm text-muted-foreground">
+          Ingresos − gastos − retiros
         </CardFooter>
       </Card>
     </div>

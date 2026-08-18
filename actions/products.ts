@@ -9,6 +9,7 @@ import {
   decimalToNumber,
   firstZodError,
 } from "@/lib/action-utils";
+import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 const createProductSchema = z.object({
@@ -32,12 +33,17 @@ const createProductSchema = z.object({
     .optional(),
 });
 
+const updateProductSchema = createProductSchema.extend({
+  id: z.string().min(1, "ID inválido"),
+});
+
 const updateActiveSchema = z.object({
   id: z.string().min(1, "ID inválido"),
   active: z.boolean(),
 });
 
 export type CreateProductInput = z.infer<typeof createProductSchema>;
+export type UpdateProductInput = z.infer<typeof updateProductSchema>;
 
 export type SerializedProduct = {
   id: string;
@@ -128,6 +134,67 @@ export async function updateProductActive(
     where: { id },
     data: { active },
   });
+
+  revalidatePath("/products");
+  revalidatePath("/inventory");
+  return { success: true };
+}
+
+export async function updateProduct(
+  input: UpdateProductInput,
+): Promise<ActionResult> {
+  try {
+    await requireAdmin();
+  } catch {
+    return { success: false, error: "Sin permisos de administrador" };
+  }
+
+  const parsed = updateProductSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: firstZodError(parsed) };
+  }
+
+  const {
+    id,
+    name,
+    sku,
+    description,
+    salePrice,
+    costPrice,
+    stock,
+    minStock,
+  } = parsed.data;
+
+  const existing = await prisma.product.findUnique({ where: { id } });
+  if (!existing) {
+    return { success: false, error: "Producto no encontrado" };
+  }
+
+  try {
+    await prisma.product.update({
+      where: { id },
+      data: {
+        name,
+        sku: sku || null,
+        description: description || null,
+        salePrice,
+        costPrice: costPrice ?? existing.costPrice,
+        stock: stock ?? existing.stock,
+        minStock: minStock ?? existing.minStock,
+      },
+    });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      return {
+        success: false,
+        error: "Ya existe un producto con ese SKU",
+      };
+    }
+    throw error;
+  }
 
   revalidatePath("/products");
   revalidatePath("/inventory");

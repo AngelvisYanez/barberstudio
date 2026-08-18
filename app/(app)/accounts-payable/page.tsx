@@ -5,6 +5,7 @@ import { AccountsTable } from "@/components/accounts-table";
 import { DateRangeFilter } from "@/components/date-range-filter";
 import { ExportButtons } from "@/components/export-buttons";
 import { SiteHeader } from "@/components/site-header";
+import { getSession } from "@/lib/auth";
 import { resolveDateRange } from "@/lib/date-range";
 import { buildExportUrl } from "@/lib/export-route";
 
@@ -19,7 +20,10 @@ export default async function AccountsPayablePage({
   const { fromDate, toDate, fromStr, toStr, singleDay, rangeLabel } =
     resolveDateRange(fromParam, toParam, "month");
 
-  const accounts = await getAccountsPayable(fromDate, toDate);
+  const [accounts, session] = await Promise.all([
+    getAccountsPayable(fromDate, toDate),
+    getSession(),
+  ]);
 
   const xlsxUrl = buildExportUrl("/api/exports/accounts-payable", {
     format: "xlsx",
@@ -54,6 +58,7 @@ export default async function AccountsPayablePage({
         <AccountsTable
           kind="payable"
           accounts={accounts}
+          canEdit={session?.role === "ADMIN"}
           emptyMessage={`No hay cuentas por pagar con vencimiento en ${rangeLabel}.`}
           actions={<ExportButtons xlsxUrl={xlsxUrl} pdfUrl={pdfUrl} />}
         />

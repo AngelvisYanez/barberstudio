@@ -2,14 +2,20 @@
 
 import { useState, useTransition } from "react";
 import { format } from "date-fns";
-import { LoaderIcon, Trash2Icon } from "lucide-react";
+import { LoaderIcon, PencilIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 
 import {
   deleteService,
+  updateService,
   updateServiceActive,
   type SerializedService,
+  type UpdateServiceInput,
 } from "@/actions/services";
+import {
+  TablePagination,
+  useTablePagination,
+} from "@/components/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +25,18 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -31,11 +49,128 @@ import { formatMoney } from "@/lib/money";
 
 type Props = {
   services: SerializedService[];
+  canEdit?: boolean;
 };
 
-export function ServicesTable({ services }: Props) {
+function EditServiceDrawer({ service }: { service: SerializedService }) {
+  const [pending, startTransition] = useTransition();
+  const formId = `edit-service-${service.id}`;
+
+  function onSubmit(formData: FormData) {
+    const input: UpdateServiceInput = {
+      id: service.id,
+      name: String(formData.get("name") ?? ""),
+      description: String(formData.get("description") ?? ""),
+      price: Number(formData.get("price")),
+      durationMinutes: Number(formData.get("durationMinutes")),
+    };
+
+    startTransition(async () => {
+      const result = await updateService(input);
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Servicio actualizado");
+    });
+  }
+
+  return (
+    <Drawer>
+      <DrawerTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="text-muted-foreground"
+            aria-label="Editar servicio"
+          />
+        }
+      >
+        <PencilIcon className="size-3.5" />
+      </DrawerTrigger>
+      <DrawerContent>
+        <DrawerHeader className="gap-1">
+          <DrawerTitle>Editar servicio</DrawerTitle>
+          <DrawerDescription>{service.name}</DrawerDescription>
+        </DrawerHeader>
+        <form
+          id={formId}
+          action={onSubmit}
+          className="grid gap-4 px-4 sm:grid-cols-2"
+        >
+          <div className="grid gap-2">
+            <Label htmlFor={`${formId}-name`}>Nombre</Label>
+            <Input
+              id={`${formId}-name`}
+              name="name"
+              defaultValue={service.name}
+              required
+              className="h-11"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor={`${formId}-price`}>Precio</Label>
+            <Input
+              id={`${formId}-price`}
+              name="price"
+              type="number"
+              inputMode="decimal"
+              step="0.01"
+              min="0.01"
+              defaultValue={service.price}
+              required
+              className="h-11"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor={`${formId}-duration`}>Duración (min)</Label>
+            <Input
+              id={`${formId}-duration`}
+              name="durationMinutes"
+              type="number"
+              inputMode="numeric"
+              step="1"
+              min="1"
+              max="480"
+              defaultValue={service.durationMinutes}
+              required
+              className="h-11"
+            />
+          </div>
+          <div className="grid gap-2 sm:col-span-2">
+            <Label htmlFor={`${formId}-description`}>Descripción</Label>
+            <Input
+              id={`${formId}-description`}
+              name="description"
+              defaultValue={service.description ?? ""}
+              className="h-11"
+            />
+          </div>
+        </form>
+        <DrawerFooter>
+          <Button
+            type="submit"
+            form={formId}
+            disabled={pending}
+            className="w-full"
+            size="lg"
+          >
+            {pending ? "Guardando..." : "Guardar cambios"}
+          </Button>
+          <DrawerClose render={<Button variant="outline" />}>
+            Cancelar
+          </DrawerClose>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
+  );
+}
+
+export function ServicesTable({ services, canEdit = false }: Props) {
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+  const pagination = useTablePagination(services);
 
   function handleToggleActive(service: SerializedService) {
     const nextActive = !service.active;
@@ -94,6 +229,7 @@ export function ServicesTable({ services }: Props) {
             Aún no hay servicios registrados.
           </p>
         ) : (
+          <>
           <div className="overflow-x-auto rounded-lg border">
             <Table>
               <TableHeader>
@@ -110,7 +246,7 @@ export function ServicesTable({ services }: Props) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {services.map((service) => (
+                {pagination.pageItems.map((service) => (
                   <TableRow key={service.id}>
                     <TableCell className="font-medium">{service.name}</TableCell>
                     <TableCell className="hidden max-w-[220px] truncate text-muted-foreground sm:table-cell">
@@ -132,6 +268,9 @@ export function ServicesTable({ services }: Props) {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
+                        {canEdit ? (
+                          <EditServiceDrawer service={service} />
+                        ) : null}
                         <Button
                           variant="outline"
                           size="sm"
@@ -162,6 +301,8 @@ export function ServicesTable({ services }: Props) {
               </TableBody>
             </Table>
           </div>
+          <TablePagination {...pagination} />
+          </>
         )}
       </CardContent>
     </Card>

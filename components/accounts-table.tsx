@@ -2,7 +2,12 @@
 
 import { useRef, useState, useTransition } from "react";
 import { format } from "date-fns";
-import { CircleDollarSignIcon, LoaderIcon, Trash2Icon } from "lucide-react";
+import {
+  CircleDollarSignIcon,
+  LoaderIcon,
+  PencilIcon,
+  Trash2Icon,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -10,10 +15,17 @@ import {
   deleteAccountReceivable,
   recordPaymentPayable,
   recordPaymentReceivable,
+  updateAccountPayable,
+  updateAccountReceivable,
   type RecordPaymentInput,
   type SerializedAccount,
+  type UpdateAccountInput,
 } from "@/actions/accounts";
 import { accountStatusLabel, isOverdue } from "@/lib/accounts";
+import {
+  TablePagination,
+  useTablePagination,
+} from "@/components/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +36,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   Drawer,
   DrawerClose,
@@ -51,6 +73,7 @@ type Props = {
   accounts: SerializedAccount[];
   emptyMessage?: string;
   actions?: React.ReactNode;
+  canEdit?: boolean;
 };
 
 function statusVariant(
@@ -62,26 +85,70 @@ function statusVariant(
   return status === "PARTIAL" ? "secondary" : "outline";
 }
 
-function PaymentDrawer({
+function PaymentDialog({
   kind,
   account,
 }: {
   kind: "receivable" | "payable";
   account: SerializedAccount;
 }) {
+  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<"full" | "partial">("full");
+  const [amount, setAmount] = useState(account.balance.toFixed(2));
   const [pending, startTransition] = useTransition();
   const amountRef = useRef<HTMLInputElement>(null);
-  const formId = `payment-form-${account.id}`;
-  const paid = account.status === "PAID";
 
-  const recordPayment = kind === "receivable"
-    ? recordPaymentReceivable
-    : recordPaymentPayable;
+  const isReceivable = kind === "receivable";
+  const settled = account.status === "PAID";
+  const actionVerb = isReceivable ? "Cobrar" : "Pagar";
+  const settledLabel = isReceivable ? "Cobrado" : "Pagado";
+  const fullLabel = isReceivable ? "Cobro completo" : "Pago completo";
+  const partialLabel = "Abono parcial";
+  const submitLabel = isReceivable ? "Registrar cobro" : "Registrar pago";
+  const successLabel = isReceivable ? "Cobro registrado" : "Pago registrado";
 
-  function onSubmit(formData: FormData) {
+  const recordPayment =
+    kind === "receivable" ? recordPaymentReceivable : recordPaymentPayable;
+
+  function resetForm() {
+    setMode("full");
+    setAmount(account.balance.toFixed(2));
+  }
+
+  function handleOpenChange(nextOpen: boolean) {
+    setOpen(nextOpen);
+    if (nextOpen) resetForm();
+  }
+
+  function applyMode(nextMode: "full" | "partial") {
+    setMode(nextMode);
+    if (nextMode === "full") {
+      setAmount(account.balance.toFixed(2));
+    } else {
+      setAmount("");
+      queueMicrotask(() => amountRef.current?.focus());
+    }
+  }
+
+  function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const parsedAmount =
+      mode === "full" ? account.balance : Number(amount);
+
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      toast.error("Ingresa un monto válido");
+      return;
+    }
+
+    if (parsedAmount > account.balance) {
+      toast.error("El monto excede el saldo pendiente");
+      return;
+    }
+
     const input: RecordPaymentInput = {
       id: account.id,
-      amount: Number(formData.get("amount")),
+      amount: parsedAmount,
     };
 
     startTransition(async () => {
@@ -92,36 +159,67 @@ function PaymentDrawer({
         return;
       }
 
-      toast.success("Pago registrado");
-      amountRef.current?.focus();
+      toast.success(successLabel);
+      setOpen(false);
     });
   }
 
   return (
-    <Drawer>
-      <DrawerTrigger
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger
         render={
           <Button
             variant="outline"
             size="sm"
-            disabled={paid}
+            disabled={settled}
             className="h-7 text-xs"
           />
         }
       >
         <CircleDollarSignIcon data-icon="inline-start" />
-        {paid ? "Pagado" : "Pagar"}
-      </DrawerTrigger>
-      <DrawerContent>
-        <DrawerHeader className="gap-1">
-          <DrawerTitle>Registrar pago</DrawerTitle>
-          <DrawerDescription>
-            {account.name} · Saldo pendiente: {formatMoney(account.balance)}
-          </DrawerDescription>
-        </DrawerHeader>
-        <form id={formId} action={onSubmit} className="flex flex-col gap-4 px-4">
+        {settled ? settledLabel : actionVerb}
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md" showCloseButton>
+        <DialogHeader>
+          <DialogTitle>
+            {actionVerb}: {account.name}
+          </DialogTitle>
+          <DialogDescription>
+            Saldo pendiente: {formatMoney(account.balance)}
+          </DialogDescription>
+        </DialogHeader>
+
+        <form
+          id={`payment-form-${account.id}`}
+          onSubmit={onSubmit}
+          className="grid gap-4"
+        >
           <div className="grid gap-2">
-            <Label htmlFor={`payment-amount-${account.id}`}>Monto del abono</Label>
+            <Label>Tipo de movimiento</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant={mode === "full" ? "default" : "outline"}
+                className="h-10"
+                onClick={() => applyMode("full")}
+              >
+                {fullLabel}
+              </Button>
+              <Button
+                type="button"
+                variant={mode === "partial" ? "default" : "outline"}
+                className="h-10"
+                onClick={() => applyMode("partial")}
+              >
+                {partialLabel}
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor={`payment-amount-${account.id}`}>
+              {mode === "full" ? "Monto total" : "Monto del abono"}
+            </Label>
             <Input
               ref={amountRef}
               id={`payment-amount-${account.id}`}
@@ -131,9 +229,158 @@ function PaymentDrawer({
               step="0.01"
               min="0.01"
               max={account.balance}
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+              readOnly={mode === "full"}
+              required={mode === "partial"}
               placeholder="0.00"
-              required
               className="h-11 text-base"
+            />
+            {mode === "full" ? (
+              <p className="text-xs text-muted-foreground">
+                Se registrará el saldo completo pendiente.
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Máximo {formatMoney(account.balance)}.
+              </p>
+            )}
+          </div>
+        </form>
+
+        <DialogFooter>
+          <DialogClose render={<Button type="button" variant="outline" />}>
+            Cancelar
+          </DialogClose>
+          <Button
+            type="submit"
+            form={`payment-form-${account.id}`}
+            disabled={pending}
+          >
+            {pending ? "Guardando..." : submitLabel}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditAccountDrawer({
+  kind,
+  account,
+}: {
+  kind: "receivable" | "payable";
+  account: SerializedAccount;
+}) {
+  const [pending, startTransition] = useTransition();
+  const formId = `edit-account-${account.id}`;
+  const isReceivable = kind === "receivable";
+  const updateAccount = isReceivable
+    ? updateAccountReceivable
+    : updateAccountPayable;
+
+  function onSubmit(formData: FormData) {
+    const input: UpdateAccountInput = {
+      id: account.id,
+      name: String(formData.get("name") ?? ""),
+      description: String(formData.get("description") ?? ""),
+      amount: Number(formData.get("amount")),
+      dueDate: new Date(String(formData.get("dueDate") ?? "")),
+      notes: String(formData.get("notes") ?? ""),
+    };
+
+    startTransition(async () => {
+      const result = await updateAccount(input);
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Cuenta actualizada");
+    });
+  }
+
+  return (
+    <Drawer>
+      <DrawerTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="text-muted-foreground"
+            aria-label="Editar cuenta"
+          />
+        }
+      >
+        <PencilIcon className="size-3.5" />
+      </DrawerTrigger>
+      <DrawerContent>
+        <DrawerHeader className="gap-1">
+          <DrawerTitle>Editar cuenta</DrawerTitle>
+          <DrawerDescription>
+            {account.name}
+            {account.paidAmount > 0
+              ? ` · Ya ${isReceivable ? "cobrado" : "pagado"}: ${formatMoney(account.paidAmount)}`
+              : null}
+          </DrawerDescription>
+        </DrawerHeader>
+        <form
+          id={formId}
+          action={onSubmit}
+          className="grid gap-4 px-4 sm:grid-cols-2"
+        >
+          <div className="grid gap-2">
+            <Label htmlFor={`${formId}-name`}>
+              {isReceivable ? "Cliente" : "Proveedor"}
+            </Label>
+            <Input
+              id={`${formId}-name`}
+              name="name"
+              defaultValue={account.name}
+              required
+              className="h-11"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor={`${formId}-amount`}>Monto</Label>
+            <Input
+              id={`${formId}-amount`}
+              name="amount"
+              type="number"
+              inputMode="decimal"
+              step="0.01"
+              min={Math.max(0.01, account.paidAmount)}
+              defaultValue={account.amount}
+              required
+              className="h-11"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor={`${formId}-due`}>Vencimiento</Label>
+            <Input
+              id={`${formId}-due`}
+              name="dueDate"
+              type="date"
+              defaultValue={format(new Date(account.dueDate), "yyyy-MM-dd")}
+              required
+              className="h-11"
+            />
+          </div>
+          <div className="grid gap-2 sm:col-span-2">
+            <Label htmlFor={`${formId}-description`}>Concepto</Label>
+            <Input
+              id={`${formId}-description`}
+              name="description"
+              defaultValue={account.description ?? ""}
+              className="h-11"
+            />
+          </div>
+          <div className="grid gap-2 sm:col-span-2">
+            <Label htmlFor={`${formId}-notes`}>Notas</Label>
+            <Input
+              id={`${formId}-notes`}
+              name="notes"
+              defaultValue={account.notes ?? ""}
+              className="h-11"
             />
           </div>
         </form>
@@ -145,7 +392,7 @@ function PaymentDrawer({
             className="w-full"
             size="lg"
           >
-            {pending ? "Guardando..." : "Registrar pago"}
+            {pending ? "Guardando..." : "Guardar cambios"}
           </Button>
           <DrawerClose render={<Button variant="outline" />}>
             Cancelar
@@ -161,9 +408,11 @@ export function AccountsTable({
   accounts,
   emptyMessage,
   actions,
+  canEdit = false,
 }: Props) {
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+  const pagination = useTablePagination(accounts);
 
   const removeAccount =
     kind === "receivable" ? deleteAccountReceivable : deleteAccountPayable;
@@ -209,6 +458,7 @@ export function AccountsTable({
             {emptyMessage}
           </p>
         ) : (
+          <>
           <div className="overflow-x-auto rounded-lg border">
             <Table>
               <TableHeader>
@@ -228,7 +478,7 @@ export function AccountsTable({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {accounts.map((account) => {
+                {pagination.pageItems.map((account) => {
                   const dueDate = new Date(account.dueDate);
                   return (
                     <TableRow key={account.id}>
@@ -259,7 +509,10 @@ export function AccountsTable({
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <PaymentDrawer kind={kind} account={account} />
+                          {canEdit ? (
+                            <EditAccountDrawer kind={kind} account={account} />
+                          ) : null}
+                          <PaymentDialog kind={kind} account={account} />
                           <Button
                             variant="ghost"
                             size="icon-sm"
@@ -282,6 +535,8 @@ export function AccountsTable({
               </TableBody>
             </Table>
           </div>
+          <TablePagination {...pagination} />
+          </>
         )}
       </CardContent>
     </Card>

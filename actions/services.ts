@@ -9,6 +9,7 @@ import {
   decimalToNumber,
   firstZodError,
 } from "@/lib/action-utils";
+import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 const createServiceSchema = z.object({
@@ -22,12 +23,17 @@ const createServiceSchema = z.object({
     .max(480, "La duración no puede superar 480 minutos"),
 });
 
+const updateServiceSchema = createServiceSchema.extend({
+  id: z.string().min(1, "ID inválido"),
+});
+
 const updateActiveSchema = z.object({
   id: z.string().min(1, "ID inválido"),
   active: z.boolean(),
 });
 
 export type CreateServiceInput = z.infer<typeof createServiceSchema>;
+export type UpdateServiceInput = z.infer<typeof updateServiceSchema>;
 
 export type SerializedService = {
   id: string;
@@ -107,6 +113,54 @@ export async function updateServiceActive(
     where: { id },
     data: { active },
   });
+
+  revalidatePath("/services");
+  return { success: true };
+}
+
+export async function updateService(
+  input: UpdateServiceInput,
+): Promise<ActionResult> {
+  try {
+    await requireAdmin();
+  } catch {
+    return { success: false, error: "Sin permisos de administrador" };
+  }
+
+  const parsed = updateServiceSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: firstZodError(parsed) };
+  }
+
+  const { id, name, description, price, durationMinutes } = parsed.data;
+
+  const existing = await prisma.service.findUnique({ where: { id } });
+  if (!existing) {
+    return { success: false, error: "Servicio no encontrado" };
+  }
+
+  try {
+    await prisma.service.update({
+      where: { id },
+      data: {
+        name,
+        description: description || null,
+        price,
+        durationMinutes,
+      },
+    });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      return {
+        success: false,
+        error: "Ya existe un servicio con ese nombre",
+      };
+    }
+    throw error;
+  }
 
   revalidatePath("/services");
   return { success: true };

@@ -11,6 +11,10 @@ import {
   updateAppointmentStatus,
   type SerializedAppointment,
 } from "@/actions/appointments";
+import {
+  TablePagination,
+  useTablePagination,
+} from "@/components/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -71,6 +75,7 @@ function statusVariant(
 export function AppointmentsTable({ appointments }: Props) {
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+  const pagination = useTablePagination(appointments);
 
   function handleStatus(
     appointment: SerializedAppointment,
@@ -128,6 +133,7 @@ export function AppointmentsTable({ appointments }: Props) {
             Aún no hay citas agendadas.
           </p>
         ) : (
+          <>
           <div className="overflow-x-auto rounded-lg border">
             <Table>
               <TableHeader>
@@ -144,7 +150,7 @@ export function AppointmentsTable({ appointments }: Props) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {appointments.map((appointment) => {
+                {pagination.pageItems.map((appointment) => {
                   const startsAt = new Date(appointment.startsAt);
                   return (
                     <TableRow key={appointment.id}>
@@ -208,6 +214,8 @@ export function AppointmentsTable({ appointments }: Props) {
               </TableBody>
             </Table>
           </div>
+          <TablePagination {...pagination} />
+          </>
         )}
       </CardContent>
     </Card>

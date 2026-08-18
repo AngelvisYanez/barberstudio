@@ -1,10 +1,14 @@
 import {
   endOfDay,
   endOfMonth,
+  endOfQuarter,
+  endOfYear,
   format,
   isSameDay,
   startOfDay,
   startOfMonth,
+  startOfQuarter,
+  startOfYear,
 } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -21,6 +25,45 @@ export function parseDateParam(value: string | undefined): Date | null {
 }
 
 export type DateRangePreset = "today" | "month";
+
+export type PeriodPreset = "day" | "month" | "quarter" | "year";
+
+export const PERIOD_PRESETS: { value: PeriodPreset; label: string }[] = [
+  { value: "day", label: "Día" },
+  { value: "month", label: "Mes" },
+  { value: "quarter", label: "Trimestre" },
+  { value: "year", label: "Año" },
+];
+
+export function rangeForPeriod(
+  period: PeriodPreset,
+  now = new Date(),
+): { from: Date; to: Date } {
+  switch (period) {
+    case "day":
+      return { from: startOfDay(now), to: endOfDay(now) };
+    case "month":
+      return { from: startOfMonth(now), to: endOfMonth(now) };
+    case "quarter":
+      return { from: startOfQuarter(now), to: endOfQuarter(now) };
+    case "year":
+      return { from: startOfYear(now), to: endOfYear(now) };
+  }
+}
+
+export function detectPeriodPreset(
+  from: Date,
+  to: Date,
+  now = new Date(),
+): PeriodPreset | null {
+  for (const { value } of PERIOD_PRESETS) {
+    const range = rangeForPeriod(value, now);
+    if (isSameDay(from, range.from) && isSameDay(to, range.to)) {
+      return value;
+    }
+  }
+  return null;
+}
 
 export function resolveDateRange(
   fromParam: string | undefined,

@@ -10,6 +10,10 @@ import {
   updateBarberActive,
   type SerializedBarber,
 } from "@/actions/barbers";
+import {
+  TablePagination,
+  useTablePagination,
+} from "@/components/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +39,7 @@ type Props = {
 export function BarbersTable({ barbers }: Props) {
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+  const pagination = useTablePagination(barbers);
 
   function handleToggleActive(barber: SerializedBarber) {
     const nextActive = !barber.active;
@@ -91,6 +96,7 @@ export function BarbersTable({ barbers }: Props) {
             Aún no hay barberos registrados.
           </p>
         ) : (
+          <>
           <div className="overflow-x-auto rounded-lg border">
             <Table>
               <TableHeader>
@@ -106,7 +112,7 @@ export function BarbersTable({ barbers }: Props) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {barbers.map((barber) => (
+                {pagination.pageItems.map((barber) => (
                   <TableRow key={barber.id}>
                     <TableCell className="font-medium">{barber.name}</TableCell>
                     <TableCell className="hidden sm:table-cell">
@@ -161,6 +167,8 @@ export function BarbersTable({ barbers }: Props) {
               </TableBody>
             </Table>
           </div>
+          <TablePagination {...pagination} />
+          </>
         )}
       </CardContent>
     </Card>
