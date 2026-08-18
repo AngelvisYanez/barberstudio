@@ -1,12 +1,11 @@
 "use client";
 
-import { useRef, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import {
   createAccountPayable,
   createAccountReceivable,
-  type CreateAccountInput,
 } from "@/actions/accounts";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,32 +17,63 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+export type ExpenseCategoryOption = {
+  id: string;
+  name: string;
+};
 
 type Props = {
   kind: "receivable" | "payable";
+  expenseCategories?: ExpenseCategoryOption[];
 };
 
-export function AccountForm({ kind }: Props) {
+export function AccountForm({ kind, expenseCategories = [] }: Props) {
   const isReceivable = kind === "receivable";
   const [pending, startTransition] = useTransition();
+  const [categoryId, setCategoryId] = useState(expenseCategories[0]?.id ?? "");
   const formRef = useRef<HTMLFormElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
 
-  const createAccount = isReceivable
-    ? createAccountReceivable
-    : createAccountPayable;
+  const categoryItems = useMemo(
+    () => expenseCategories.map((category) => ({
+      label: category.name,
+      value: category.id,
+    })),
+    [expenseCategories],
+  );
 
   function onSubmit(formData: FormData) {
-    const input: CreateAccountInput = {
-      name: String(formData.get("name") ?? ""),
-      description: String(formData.get("description") ?? ""),
-      amount: Number(formData.get("amount")),
-      dueDate: new Date(String(formData.get("dueDate") ?? "")),
-      notes: String(formData.get("notes") ?? ""),
-    };
+    const name = String(formData.get("name") ?? "");
+    const description = String(formData.get("description") ?? "");
+    const amount = Number(formData.get("amount"));
+    const dueDate = new Date(String(formData.get("dueDate") ?? ""));
+    const notes = String(formData.get("notes") ?? "");
 
     startTransition(async () => {
-      const result = await createAccount(input);
+      const result = isReceivable
+        ? await createAccountReceivable({
+            name,
+            description,
+            amount,
+            dueDate,
+            notes,
+          })
+        : await createAccountPayable({
+            name,
+            description,
+            amount,
+            dueDate,
+            notes,
+            categoryId,
+          });
 
       if (!result.success) {
         toast.error(result.error);
@@ -117,6 +147,30 @@ export function AccountForm({ kind }: Props) {
             />
           </div>
 
+          {isReceivable ? null : (
+            <div className="grid gap-2">
+              <Label htmlFor="account-category">Tipo de gasto</Label>
+              <Select
+                items={categoryItems}
+                value={categoryId}
+                onValueChange={(value) => {
+                  if (value) setCategoryId(value);
+                }}
+              >
+                <SelectTrigger id="account-category" className="h-11 w-full">
+                  <SelectValue placeholder="Selecciona" />
+                </SelectTrigger>
+                <SelectContent>
+                  {expenseCategories.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="grid gap-2 sm:col-span-2 lg:col-span-2">
             <Label htmlFor="account-description">Concepto (opcional)</Label>
             <Input
@@ -140,7 +194,7 @@ export function AccountForm({ kind }: Props) {
           <div className="flex items-end sm:col-span-2 lg:col-span-3">
             <Button
               type="submit"
-              disabled={pending}
+              disabled={pending || (!isReceivable && !categoryId)}
               className="h-11 w-full text-base lg:w-auto lg:px-8"
               size="lg"
             >

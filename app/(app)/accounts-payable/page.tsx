@@ -1,4 +1,7 @@
+import { CategoryType } from "@prisma/client";
+
 import { getAccountsPayable } from "@/actions/accounts";
+import { getCategories } from "@/actions/transactions";
 import { AccountForm } from "@/components/account-form";
 import { AccountSummary } from "@/components/account-summary";
 import { AccountsTable } from "@/components/accounts-table";
@@ -20,9 +23,10 @@ export default async function AccountsPayablePage({
   const { fromDate, toDate, fromStr, toStr, singleDay, rangeLabel } =
     resolveDateRange(fromParam, toParam, "month");
 
-  const [accounts, session] = await Promise.all([
+  const [accounts, session, expenseCategories] = await Promise.all([
     getAccountsPayable(fromDate, toDate),
     getSession(),
+    getCategories([CategoryType.BUSINESS_EXPENSE]),
   ]);
 
   const xlsxUrl = buildExportUrl("/api/exports/accounts-payable", {
@@ -54,10 +58,11 @@ export default async function AccountsPayablePage({
           <DateRangeFilter defaultValue={{ from: fromStr, to: toStr }} />
         </div>
         <AccountSummary kind="payable" accounts={accounts} />
-        <AccountForm kind="payable" />
+        <AccountForm kind="payable" expenseCategories={expenseCategories} />
         <AccountsTable
           kind="payable"
           accounts={accounts}
+          expenseCategories={expenseCategories}
           canEdit={session?.role === "ADMIN"}
           emptyMessage={`No hay cuentas por pagar con vencimiento en ${rangeLabel}.`}
           actions={<ExportButtons xlsxUrl={xlsxUrl} pdfUrl={pdfUrl} />}

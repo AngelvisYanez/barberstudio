@@ -19,8 +19,8 @@ import {
   updateAccountReceivable,
   type RecordPaymentInput,
   type SerializedAccount,
-  type UpdateAccountInput,
 } from "@/actions/accounts";
+import type { ExpenseCategoryOption } from "@/components/account-form";
 import { accountStatusLabel, isOverdue } from "@/lib/accounts";
 import {
   TablePagination,
@@ -59,6 +59,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -74,6 +81,7 @@ type Props = {
   emptyMessage?: string;
   actions?: React.ReactNode;
   canEdit?: boolean;
+  expenseCategories?: ExpenseCategoryOption[];
 };
 
 function statusVariant(
@@ -268,29 +276,49 @@ function PaymentDialog({
 function EditAccountDrawer({
   kind,
   account,
+  expenseCategories = [],
 }: {
   kind: "receivable" | "payable";
   account: SerializedAccount;
+  expenseCategories?: ExpenseCategoryOption[];
 }) {
   const [pending, startTransition] = useTransition();
+  const [categoryId, setCategoryId] = useState(
+    account.categoryId ?? expenseCategories[0]?.id ?? "",
+  );
   const formId = `edit-account-${account.id}`;
   const isReceivable = kind === "receivable";
-  const updateAccount = isReceivable
-    ? updateAccountReceivable
-    : updateAccountPayable;
+  const categoryItems = expenseCategories.map((category) => ({
+    label: category.name,
+    value: category.id,
+  }));
 
   function onSubmit(formData: FormData) {
-    const input: UpdateAccountInput = {
-      id: account.id,
-      name: String(formData.get("name") ?? ""),
-      description: String(formData.get("description") ?? ""),
-      amount: Number(formData.get("amount")),
-      dueDate: new Date(String(formData.get("dueDate") ?? "")),
-      notes: String(formData.get("notes") ?? ""),
-    };
+    const name = String(formData.get("name") ?? "");
+    const description = String(formData.get("description") ?? "");
+    const amount = Number(formData.get("amount"));
+    const dueDate = new Date(String(formData.get("dueDate") ?? ""));
+    const notes = String(formData.get("notes") ?? "");
 
     startTransition(async () => {
-      const result = await updateAccount(input);
+      const result = isReceivable
+        ? await updateAccountReceivable({
+            id: account.id,
+            name,
+            description,
+            amount,
+            dueDate,
+            notes,
+          })
+        : await updateAccountPayable({
+            id: account.id,
+            name,
+            description,
+            amount,
+            dueDate,
+            notes,
+            categoryId,
+          });
       if (!result.success) {
         toast.error(result.error);
         return;
@@ -365,6 +393,29 @@ function EditAccountDrawer({
               className="h-11"
             />
           </div>
+          {isReceivable ? null : (
+            <div className="grid gap-2">
+              <Label htmlFor={`${formId}-category`}>Tipo de gasto</Label>
+              <Select
+                items={categoryItems}
+                value={categoryId}
+                onValueChange={(value) => {
+                  if (value) setCategoryId(value);
+                }}
+              >
+                <SelectTrigger id={`${formId}-category`} className="h-11 w-full">
+                  <SelectValue placeholder="Selecciona" />
+                </SelectTrigger>
+                <SelectContent>
+                  {expenseCategories.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="grid gap-2 sm:col-span-2">
             <Label htmlFor={`${formId}-description`}>Concepto</Label>
             <Input
@@ -409,6 +460,7 @@ export function AccountsTable({
   emptyMessage,
   actions,
   canEdit = false,
+  expenseCategories = [],
 }: Props) {
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
@@ -510,7 +562,11 @@ export function AccountsTable({
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
                           {canEdit ? (
-                            <EditAccountDrawer kind={kind} account={account} />
+                            <EditAccountDrawer
+                              kind={kind}
+                              account={account}
+                              expenseCategories={expenseCategories}
+                            />
                           ) : null}
                           <PaymentDialog kind={kind} account={account} />
                           <Button
