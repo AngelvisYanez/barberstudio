@@ -9,8 +9,7 @@ import {
   firstZodError,
 } from "@/lib/action-utils";
 import { prisma } from "@/lib/prisma";
-
-const DEFAULT_SETTINGS_ID = "default";
+import { requireTenantId } from "@/lib/tenant";
 
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
@@ -82,9 +81,14 @@ function serializeSettings(
 }
 
 export async function getBusinessSettings(): Promise<SerializedBusinessSettings> {
+  const tenantId = await requireTenantId();
+  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
   const settings = await prisma.businessSettings.upsert({
-    where: { id: DEFAULT_SETTINGS_ID },
-    create: { id: DEFAULT_SETTINGS_ID },
+    where: { tenantId },
+    create: {
+      tenantId,
+      businessName: tenant?.name ?? "Barbería",
+    },
     update: {},
   });
 
@@ -110,10 +114,11 @@ export async function updateBusinessSettings(
     closeTime,
   } = parsed.data;
 
+  const tenantId = await requireTenantId();
   await prisma.businessSettings.upsert({
-    where: { id: DEFAULT_SETTINGS_ID },
+    where: { tenantId },
     create: {
-      id: DEFAULT_SETTINGS_ID,
+      tenantId,
       businessName,
       phone: phone || null,
       email: email || null,

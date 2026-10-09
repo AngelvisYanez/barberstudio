@@ -20,6 +20,7 @@ enum AccountStatus {
 }
 
 enum UserRole {
+  SUPERADMIN
   ADMIN
   MANAGER
   STAFF
@@ -38,18 +39,48 @@ enum InventoryMovementType {
   ADJUST
 }
 
+model Tenant {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  users        User[]
+  categories   Category[]
+  transactions Transaction[]
+  receivables  AccountReceivable[]
+  payables     AccountPayable[]
+  payments     AccountPayablePayment[]
+  clients      Client[]
+  barbers      Barber[]
+  services     Service[]
+  appointments Appointment[]
+  products     Product[]
+  movements    InventoryMovement[]
+  settings     BusinessSettings?
+
+  @@index([active])
+}
+
 model Category {
   id           String            @id @default(cuid())
+  tenantId     String
+  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name         String
   type         CategoryType
   transactions Transaction[]
   payables     AccountPayable[]
 
-  @@unique([name, type])
+  @@unique([tenantId, name, type])
+  @@index([tenantId])
 }
 
 model Transaction {
   id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   amount      Decimal  @db.Decimal(12, 2)
   date        DateTime @default(now())
   description String?
@@ -57,12 +88,14 @@ model Transaction {
   category    Category @relation(fields: [categoryId], references: [id])
   createdAt   DateTime @default(now())
 
-  @@index([date])
+  @@index([tenantId, date])
   @@index([categoryId])
 }
 
 model AccountReceivable {
   id          String        @id @default(cuid())
+  tenantId    String
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   clientName  String
   description String?
   amount      Decimal       @db.Decimal(12, 2)
@@ -73,12 +106,14 @@ model AccountReceivable {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
-  @@index([dueDate])
-  @@index([status])
+  @@index([tenantId, dueDate])
+  @@index([tenantId, status])
 }
 
 model AccountPayable {
   id           String                  @id @default(cuid())
+  tenantId     String
+  tenant       Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   supplierName String
   description  String?
   amount       Decimal                 @db.Decimal(12, 2)
@@ -92,13 +127,15 @@ model AccountPayable {
   createdAt    DateTime                @default(now())
   updatedAt    DateTime                @updatedAt
 
-  @@index([dueDate])
-  @@index([status])
+  @@index([tenantId, dueDate])
+  @@index([tenantId, status])
   @@index([categoryId])
 }
 
 model AccountPayablePayment {
   id        String         @id @default(cuid())
+  tenantId  String
+  tenant    Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   accountId String
   account   AccountPayable @relation(fields: [accountId], references: [id], onDelete: Cascade)
   amount    Decimal        @db.Decimal(12, 2)
@@ -106,12 +143,14 @@ model AccountPayablePayment {
   note      String?
   createdAt DateTime       @default(now())
 
+  @@index([tenantId, paidAt])
   @@index([accountId])
-  @@index([paidAt])
 }
 
 model User {
   id           String   @id @default(cuid())
+  tenantId     String?
+  tenant       Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name         String
   email        String   @unique
   passwordHash String
@@ -120,12 +159,15 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  @@index([tenantId])
   @@index([role])
   @@index([active])
 }
 
 model Client {
   id           String        @id @default(cuid())
+  tenantId     String
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name         String
   phone        String?
   email        String?
@@ -135,12 +177,14 @@ model Client {
   updatedAt    DateTime      @updatedAt
   appointments Appointment[]
 
-  @@index([name])
-  @@index([active])
+  @@index([tenantId, name])
+  @@index([tenantId, active])
 }
 
 model Barber {
   id                String        @id @default(cuid())
+  tenantId          String
+  tenant            Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name              String
   phone             String?
   email             String?
@@ -151,12 +195,14 @@ model Barber {
   updatedAt         DateTime      @updatedAt
   appointments      Appointment[]
 
-  @@index([name])
-  @@index([active])
+  @@index([tenantId, name])
+  @@index([tenantId, active])
 }
 
 model Service {
   id              String        @id @default(cuid())
+  tenantId        String
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name            String
   description     String?
   price           Decimal       @db.Decimal(12, 2)
@@ -166,12 +212,14 @@ model Service {
   updatedAt       DateTime      @updatedAt
   appointments    Appointment[]
 
-  @@unique([name])
-  @@index([active])
+  @@unique([tenantId, name])
+  @@index([tenantId, active])
 }
 
 model Appointment {
   id        String            @id @default(cuid())
+  tenantId  String
+  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   clientId  String
   client    Client            @relation(fields: [clientId], references: [id])
   barberId  String
@@ -185,8 +233,8 @@ model Appointment {
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
 
-  @@index([startsAt])
-  @@index([status])
+  @@index([tenantId, startsAt])
+  @@index([tenantId, status])
   @@index([clientId])
   @@index([barberId])
   @@index([serviceId])
@@ -194,8 +242,10 @@ model Appointment {
 
 model Product {
   id          String              @id @default(cuid())
+  tenantId    String
+  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name        String
-  sku         String?             @unique
+  sku         String?
   description String?
   salePrice   Decimal             @db.Decimal(12, 2)
   costPrice   Decimal             @db.Decimal(12, 2) @default(0)
@@ -206,13 +256,16 @@ model Product {
   updatedAt   DateTime            @updatedAt
   movements   InventoryMovement[]
 
-  @@index([name])
-  @@index([active])
+  @@unique([tenantId, sku])
+  @@index([tenantId, name])
+  @@index([tenantId, active])
   @@index([stock])
 }
 
 model InventoryMovement {
   id        String                @id @default(cuid())
+  tenantId  String
+  tenant    Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   productId String
   product   Product               @relation(fields: [productId], references: [id])
   type      InventoryMovementType
@@ -220,14 +273,16 @@ model InventoryMovement {
   note      String?
   createdAt DateTime              @default(now())
 
+  @@index([tenantId, createdAt])
   @@index([productId])
-  @@index([createdAt])
   @@index([type])
 }
 
 model BusinessSettings {
-  id           String   @id @default("default")
-  businessName String   @default("Barber Studio")
+  id           String   @id @default(cuid())
+  tenantId     String   @unique
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  businessName String
   phone        String?
   email        String?
   address      String?

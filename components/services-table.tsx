@@ -16,6 +16,11 @@ import {
   TablePagination,
   useTablePagination,
 } from "@/components/table-pagination";
+import {
+  desktopTableClass,
+  MobileRecord,
+  MobileRecordList,
+} from "@/components/mobile-record";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -82,14 +87,14 @@ function EditServiceDrawer({ service }: { service: SerializedService }) {
           <Button
             variant="ghost"
             size="icon-sm"
-            className="text-muted-foreground"
+            className="size-11 text-muted-foreground md:size-7"
             aria-label="Editar servicio"
           />
         }
       >
         <PencilIcon className="size-3.5" />
       </DrawerTrigger>
-      <DrawerContent>
+      <DrawerContent className="max-h-[min(85dvh,calc(100dvh-env(safe-area-inset-bottom)-1rem))] overflow-y-auto">
         <DrawerHeader className="gap-1">
           <DrawerTitle>Editar servicio</DrawerTitle>
           <DrawerDescription>{service.name}</DrawerDescription>
@@ -230,7 +235,48 @@ export function ServicesTable({ services, canEdit = false }: Props) {
           </p>
         ) : (
           <>
-          <div className="overflow-x-auto rounded-lg border">
+          <MobileRecordList>
+            {pagination.pageItems.map((service) => (
+              <MobileRecord
+                key={service.id}
+                title={service.name}
+                meta={`${formatMoney(service.price)} · ${service.durationMinutes} min${service.description ? ` · ${service.description}` : ""}`}
+                aside={
+                  <Badge variant={service.active ? "default" : "secondary"}>
+                    {service.active ? "Activo" : "Inactivo"}
+                  </Badge>
+                }
+                actions={
+                  <>
+                    {canEdit ? <EditServiceDrawer service={service} /> : null}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={pendingId === service.id}
+                      onClick={() => handleToggleActive(service)}
+                    >
+                      {service.active ? "Desactivar" : "Activar"}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDelete(service)}
+                      disabled={pendingId === service.id}
+                      className="text-muted-foreground hover:text-destructive"
+                      aria-label="Eliminar servicio"
+                    >
+                      {pendingId === service.id ? (
+                        <LoaderIcon className="size-4 animate-spin" />
+                      ) : (
+                        <Trash2Icon className="size-4" />
+                      )}
+                    </Button>
+                  </>
+                }
+              />
+            ))}
+          </MobileRecordList>
+          <div className={desktopTableClass}>
             <Table>
               <TableHeader>
                 <TableRow>

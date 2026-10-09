@@ -14,6 +14,11 @@ import {
   TablePagination,
   useTablePagination,
 } from "@/components/table-pagination";
+import {
+  desktopTableClass,
+  MobileRecord,
+  MobileRecordList,
+} from "@/components/mobile-record";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -62,7 +67,7 @@ export function UsersAdmin({ users }: { users: SerializedUser[] }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<UserRole>("STAFF");
+  const [role, setRole] = useState<"ADMIN" | "MANAGER" | "STAFF">("STAFF");
   const [active, setActive] = useState(true);
 
   function resetForm() {
@@ -79,7 +84,7 @@ export function UsersAdmin({ users }: { users: SerializedUser[] }) {
     setName(user.name);
     setEmail(user.email);
     setPassword("");
-    setRole(user.role);
+    setRole(user.role === "SUPERADMIN" ? "ADMIN" : user.role);
     setActive(user.active);
   }
 
@@ -195,8 +200,8 @@ export function UsersAdmin({ users }: { users: SerializedUser[] }) {
                 Usuario activo
               </label>
             ) : null}
-            <div className="flex gap-2">
-              <Button type="submit" disabled={pending} className="flex-1">
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button type="submit" disabled={pending} className="h-11 w-full sm:w-auto">
                 {editingUser ? "Guardar cambios" : "Crear usuario"}
               </Button>
               {editingUser ? (
@@ -204,6 +209,7 @@ export function UsersAdmin({ users }: { users: SerializedUser[] }) {
                   type="button"
                   variant="outline"
                   disabled={pending}
+                  className="h-11 w-full sm:w-auto"
                   onClick={resetForm}
                 >
                   Cancelar
@@ -229,7 +235,41 @@ export function UsersAdmin({ users }: { users: SerializedUser[] }) {
             </p>
           ) : (
             <>
-              <div className="overflow-x-auto rounded-lg border">
+              <MobileRecordList>
+                {pagination.pageItems.map((user) => (
+                  <MobileRecord
+                    key={user.id}
+                    title={user.name}
+                    meta={`${user.email} · ${roleLabel(user.role)}`}
+                    aside={
+                      <Badge variant={user.active ? "default" : "secondary"}>
+                        {user.active ? "Activo" : "Inactivo"}
+                      </Badge>
+                    }
+                    actions={
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={pending}
+                          onClick={() => startEdit(user)}
+                        >
+                          Editar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          disabled={pending}
+                          onClick={() => onDelete(user.id)}
+                        >
+                          Eliminar
+                        </Button>
+                      </>
+                    }
+                  />
+                ))}
+              </MobileRecordList>
+              <div className={desktopTableClass}>
                 <Table>
                   <TableHeader>
                     <TableRow>

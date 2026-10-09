@@ -2,6 +2,8 @@
 
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
+import { useIsMobile } from "@/hooks/use-mobile";
+
 import type { DayComparison } from "@/actions/transactions";
 import {
   Card,
@@ -37,6 +39,8 @@ export function IncomeExpenseChart({
   data: DayComparison[];
   description?: string;
 }) {
+  const isMobile = useIsMobile();
+
   return (
     <Card className="@container/card">
       <CardHeader>
@@ -44,21 +48,25 @@ export function IncomeExpenseChart({
         <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent className="px-2 pt-2 sm:px-6 sm:pt-4">
-        <ChartContainer config={chartConfig} className="aspect-auto h-[260px] w-full">
-          <BarChart data={data} margin={{ left: 8, right: 8 }}>
+        <ChartContainer config={chartConfig} className="aspect-auto h-[220px] w-full md:h-[260px]">
+          <BarChart data={data} margin={{ left: isMobile ? 0 : 8, right: 8 }}>
             <CartesianGrid vertical={false} />
             <XAxis
               dataKey="label"
               tickLine={false}
               axisLine={false}
               tickMargin={8}
+              minTickGap={28}
+              interval="preserveStartEnd"
             />
-            <YAxis
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-              width={48}
-            />
+            {isMobile ? null : (
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                width={48}
+              />
+            )}
             <ChartTooltip content={<ChartTooltipContent />} />
             <ChartLegend content={<ChartLegendContent />} />
             <Bar

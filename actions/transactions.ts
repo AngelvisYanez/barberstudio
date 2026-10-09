@@ -19,6 +19,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
+import { requireTenantId } from "@/lib/tenant";
 
 const createTransactionSchema = z.object({
   amount: z.coerce.number().positive("El monto debe ser mayor a 0"),
@@ -109,7 +110,7 @@ export async function createTransaction(
 
   const { amount, categoryId, description, date } = parsed.data;
 
-  const category = await prisma.category.findUnique({
+  const category = await prisma.category.findFirst({
     where: { id: categoryId },
   });
 
@@ -117,8 +118,10 @@ export async function createTransaction(
     return { success: false, error: "Categoría no encontrada" };
   }
 
+  const tenantId = await requireTenantId();
   await prisma.transaction.create({
     data: {
+      tenantId,
       amount,
       categoryId,
       description: description || null,

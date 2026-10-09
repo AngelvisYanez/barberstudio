@@ -14,6 +14,11 @@ import {
   TablePagination,
   useTablePagination,
 } from "@/components/table-pagination";
+import {
+  desktopTableClass,
+  MobileRecord,
+  MobileRecordList,
+} from "@/components/mobile-record";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -97,7 +102,47 @@ export function BarbersTable({ barbers }: Props) {
           </p>
         ) : (
           <>
-          <div className="overflow-x-auto rounded-lg border">
+          <MobileRecordList>
+            {pagination.pageItems.map((barber) => (
+              <MobileRecord
+                key={barber.id}
+                title={barber.name}
+                meta={`${barber.phone || "Sin teléfono"} · comisión ${barber.commissionPercent}%`}
+                aside={
+                  <Badge variant={barber.active ? "default" : "secondary"}>
+                    {barber.active ? "Activo" : "Inactivo"}
+                  </Badge>
+                }
+                actions={
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={pendingId === barber.id}
+                      onClick={() => handleToggleActive(barber)}
+                    >
+                      {barber.active ? "Desactivar" : "Activar"}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDelete(barber)}
+                      disabled={pendingId === barber.id}
+                      className="text-muted-foreground hover:text-destructive"
+                      aria-label="Eliminar barbero"
+                    >
+                      {pendingId === barber.id ? (
+                        <LoaderIcon className="size-4 animate-spin" />
+                      ) : (
+                        <Trash2Icon className="size-4" />
+                      )}
+                    </Button>
+                  </>
+                }
+              />
+            ))}
+          </MobileRecordList>
+          <div className={desktopTableClass}>
             <Table>
               <TableHeader>
                 <TableRow>

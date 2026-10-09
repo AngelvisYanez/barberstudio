@@ -95,7 +95,7 @@ export default async function TransactionsPage({
           description="Anota ingresos y gastos operativos entre cortes. Los retiros van en otra pantalla."
           submitLabel="Registrar"
         />
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <h2 className="text-lg font-semibold capitalize">
               {singleDay ? "Balance del día" : "Balance del período"}

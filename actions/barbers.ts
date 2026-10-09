@@ -10,6 +10,8 @@ import {
   firstZodError,
 } from "@/lib/action-utils";
 import { prisma } from "@/lib/prisma";
+import { requireTenantId } from "@/lib/tenant";
+import { requireTenantId } from "@/lib/tenant";
 
 const createBarberSchema = z.object({
   name: z.string().trim().min(1, "El nombre es obligatorio").max(120),
@@ -70,8 +72,10 @@ export async function createBarber(
 
   const { name, phone, email, commissionPercent, notes } = parsed.data;
 
+  const tenantId = await requireTenantId();
   await prisma.barber.create({
     data: {
+      tenantId,
       name,
       phone: phone || null,
       email: email || null,
@@ -93,12 +97,12 @@ export async function updateBarberActive(
     return { success: false, error: firstZodError(parsed) };
   }
 
-  const existing = await prisma.barber.findUnique({ where: { id } });
+  const existing = await prisma.barber.findFirst({ where: { id } });
   if (!existing) {
     return { success: false, error: "Barbero no encontrado" };
   }
 
-  await prisma.barber.update({
+  await prisma.barber.updateMany({
     where: { id },
     data: { active },
   });
@@ -123,7 +127,7 @@ export async function deleteBarber(id: string): Promise<ActionResult> {
   }
 
   try {
-    await prisma.barber.delete({ where: { id } });
+    await prisma.barber.deleteMany({ where: { id } });
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&

@@ -21,6 +21,11 @@ import {
   type SerializedAccount,
 } from "@/actions/accounts";
 import type { ExpenseCategoryOption } from "@/components/account-form";
+import {
+  desktopTableClass,
+  MobileRecord,
+  MobileRecordList,
+} from "@/components/mobile-record";
 import { accountStatusLabel, isOverdue } from "@/lib/accounts";
 import {
   TablePagination,
@@ -180,7 +185,7 @@ function PaymentDialog({
             variant="outline"
             size="sm"
             disabled={settled}
-            className="h-7 text-xs"
+            className="h-11 text-xs md:h-7"
           />
         }
       >
@@ -334,14 +339,14 @@ function EditAccountDrawer({
           <Button
             variant="ghost"
             size="icon-sm"
-            className="text-muted-foreground"
+            className="size-11 text-muted-foreground md:size-7"
             aria-label="Editar cuenta"
           />
         }
       >
         <PencilIcon className="size-3.5" />
       </DrawerTrigger>
-      <DrawerContent>
+      <DrawerContent className="max-h-[min(85dvh,calc(100dvh-env(safe-area-inset-bottom)-1rem))] overflow-y-auto">
         <DrawerHeader className="gap-1">
           <DrawerTitle>Editar cuenta</DrawerTitle>
           <DrawerDescription>
@@ -502,7 +507,11 @@ export function AccountsTable({
           {accounts.length} {accounts.length === 1 ? "registro" : "registros"} ·
           ordenado por fecha de vencimiento
         </CardDescription>
-        {actions ? <CardAction>{actions}</CardAction> : null}
+        {actions ? (
+          <CardAction className="col-span-full col-start-1 row-start-3 w-full justify-self-stretch md:col-span-1 md:col-start-2 md:row-span-2 md:row-start-1 md:w-auto">
+            {actions}
+          </CardAction>
+        ) : null}
       </CardHeader>
       <CardContent>
         {accounts.length === 0 ? (
@@ -511,7 +520,55 @@ export function AccountsTable({
           </p>
         ) : (
           <>
-          <div className="overflow-x-auto rounded-lg border">
+          <MobileRecordList>
+            {pagination.pageItems.map((account) => {
+              const dueDate = new Date(account.dueDate);
+              return (
+                <MobileRecord
+                  key={account.id}
+                  title={account.name}
+                  meta={`${account.description || "Sin concepto"} · vence ${format(dueDate, "dd/MM/yyyy")}`}
+                  aside={
+                    <div className="grid justify-items-end gap-1">
+                      <span className="font-medium tabular-nums">
+                        {formatMoney(account.balance)}
+                      </span>
+                      <Badge variant={statusVariant(account.status, dueDate)}>
+                        {accountStatusLabel(account.status, dueDate)}
+                      </Badge>
+                    </div>
+                  }
+                  actions={
+                    <>
+                      {canEdit ? (
+                        <EditAccountDrawer
+                          kind={kind}
+                          account={account}
+                          expenseCategories={expenseCategories}
+                        />
+                      ) : null}
+                      <PaymentDialog kind={kind} account={account} />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDelete(account)}
+                        disabled={pendingId === account.id}
+                        className="text-muted-foreground hover:text-destructive"
+                        aria-label="Eliminar cuenta"
+                      >
+                        {pendingId === account.id ? (
+                          <LoaderIcon className="size-4 animate-spin" />
+                        ) : (
+                          <Trash2Icon className="size-4" />
+                        )}
+                      </Button>
+                    </>
+                  }
+                />
+              );
+            })}
+          </MobileRecordList>
+          <div className={desktopTableClass}>
             <Table>
               <TableHeader>
                 <TableRow>

@@ -30,7 +30,20 @@ export async function loginAction(
   }
 
   const email = parsed.data.email.trim().toLowerCase();
-  const user = await prisma.user.findUnique({ where: { email } });
+  let user;
+  try {
+    user = await prisma.user.findUnique({ where: { email } });
+  } catch {
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      user = await prisma.user.findUnique({ where: { email } });
+    } catch {
+      return {
+        success: false,
+        error: "No se pudo conectar con la base de datos. Intenta de nuevo.",
+      };
+    }
+  }
 
   if (!user || !user.active) {
     return { success: false, error: "Credenciales incorrectas" };
@@ -46,6 +59,7 @@ export async function loginAction(
     email: user.email,
     name: user.name,
     role: user.role,
+    tenantId: user.tenantId,
   });
   await setSessionCookie(token);
 

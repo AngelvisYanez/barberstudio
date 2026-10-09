@@ -16,6 +16,11 @@ import {
   TablePagination,
   useTablePagination,
 } from "@/components/table-pagination";
+import {
+  desktopTableClass,
+  MobileRecord,
+  MobileRecordList,
+} from "@/components/mobile-record";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -89,14 +94,14 @@ function EditProductDrawer({ product }: { product: SerializedProduct }) {
           <Button
             variant="ghost"
             size="icon-sm"
-            className="text-muted-foreground"
+            className="size-11 text-muted-foreground md:size-7"
             aria-label="Editar producto"
           />
         }
       >
         <PencilIcon className="size-3.5" />
       </DrawerTrigger>
-      <DrawerContent>
+      <DrawerContent className="max-h-[min(85dvh,calc(100dvh-env(safe-area-inset-bottom)-1rem))] overflow-y-auto">
         <DrawerHeader className="gap-1">
           <DrawerTitle>Editar producto</DrawerTitle>
           <DrawerDescription>{product.name}</DrawerDescription>
@@ -270,7 +275,60 @@ export function ProductsTable({ products, canEdit = false }: Props) {
           </p>
         ) : (
           <>
-          <div className="overflow-x-auto rounded-lg border">
+          <MobileRecordList>
+            {pagination.pageItems.map((product) => {
+              const lowStock = product.stock <= product.minStock;
+              return (
+                <MobileRecord
+                  key={product.id}
+                  title={product.name}
+                  meta={`${product.sku || "Sin SKU"} · venta ${formatMoney(product.salePrice)}`}
+                  aside={
+                    <div className="grid justify-items-end gap-1">
+                      {lowStock ? (
+                        <Badge variant="destructive">{product.stock}</Badge>
+                      ) : (
+                        <span className="font-medium tabular-nums">
+                          {product.stock}
+                        </span>
+                      )}
+                      <Badge variant={product.active ? "default" : "secondary"}>
+                        {product.active ? "Activo" : "Inactivo"}
+                      </Badge>
+                    </div>
+                  }
+                  actions={
+                    <>
+                      {canEdit ? <EditProductDrawer product={product} /> : null}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={pendingId === product.id}
+                        onClick={() => handleToggleActive(product)}
+                      >
+                        {product.active ? "Desactivar" : "Activar"}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDelete(product)}
+                        disabled={pendingId === product.id}
+                        className="text-muted-foreground hover:text-destructive"
+                        aria-label="Eliminar producto"
+                      >
+                        {pendingId === product.id ? (
+                          <LoaderIcon className="size-4 animate-spin" />
+                        ) : (
+                          <Trash2Icon className="size-4" />
+                        )}
+                      </Button>
+                    </>
+                  }
+                />
+              );
+            })}
+          </MobileRecordList>
+          <div className={desktopTableClass}>
             <Table>
               <TableHeader>
                 <TableRow>

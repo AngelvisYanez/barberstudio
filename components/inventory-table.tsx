@@ -11,6 +11,11 @@ import {
   TablePagination,
   useTablePagination,
 } from "@/components/table-pagination";
+import {
+  desktopTableClass,
+  MobileRecord,
+  MobileRecordList,
+} from "@/components/mobile-record";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -70,7 +75,30 @@ export function InventoryTable({ overview, movements }: Props) {
             </p>
           ) : (
             <>
-              <div className="overflow-x-auto rounded-lg border">
+              <MobileRecordList>
+                {overviewPagination.pageItems.map((product) => (
+                  <MobileRecord
+                    key={product.id}
+                    title={product.name}
+                    meta={`${product.sku || "Sin SKU"} · mín. ${product.minStock} · ${formatMoney(product.salePrice)}`}
+                    aside={
+                      <div className="grid justify-items-end gap-1">
+                        {product.lowStock ? (
+                          <Badge variant="destructive">{product.stock}</Badge>
+                        ) : (
+                          <span className="font-medium tabular-nums">
+                            {product.stock}
+                          </span>
+                        )}
+                        <Badge variant={product.active ? "default" : "secondary"}>
+                          {product.active ? "Activo" : "Inactivo"}
+                        </Badge>
+                      </div>
+                    }
+                  />
+                ))}
+              </MobileRecordList>
+              <div className={desktopTableClass}>
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -146,7 +174,26 @@ export function InventoryTable({ overview, movements }: Props) {
             </p>
           ) : (
             <>
-              <div className="overflow-x-auto rounded-lg border">
+              <MobileRecordList>
+                {movementsPagination.pageItems.map((movement) => (
+                  <MobileRecord
+                    key={movement.id}
+                    title={movement.productName}
+                    meta={`${format(new Date(movement.createdAt), "dd/MM/yyyy HH:mm")}${movement.note ? ` · ${movement.note}` : ""}`}
+                    aside={
+                      <div className="grid justify-items-end gap-1">
+                        <Badge variant={movementVariant(movement.type)}>
+                          {MOVEMENT_LABELS[movement.type]}
+                        </Badge>
+                        <span className="font-medium tabular-nums">
+                          {movement.quantity}
+                        </span>
+                      </div>
+                    }
+                  />
+                ))}
+              </MobileRecordList>
+              <div className={desktopTableClass}>
                 <Table>
                   <TableHeader>
                     <TableRow>

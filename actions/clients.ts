@@ -6,6 +6,8 @@ import { z } from "zod";
 
 import { type ActionResult, firstZodError } from "@/lib/action-utils";
 import { prisma } from "@/lib/prisma";
+import { requireTenantId } from "@/lib/tenant";
+import { requireTenantId } from "@/lib/tenant";
 
 const createClientSchema = z.object({
   name: z.string().trim().min(1, "El nombre es obligatorio").max(120),
@@ -60,8 +62,10 @@ export async function createClient(
 
   const { name, phone, email, notes } = parsed.data;
 
+  const tenantId = await requireTenantId();
   await prisma.client.create({
     data: {
+      tenantId,
       name,
       phone: phone || null,
       email: email || null,
@@ -82,12 +86,12 @@ export async function updateClientActive(
     return { success: false, error: firstZodError(parsed) };
   }
 
-  const existing = await prisma.client.findUnique({ where: { id } });
+  const existing = await prisma.client.findFirst({ where: { id } });
   if (!existing) {
     return { success: false, error: "Cliente no encontrado" };
   }
 
-  await prisma.client.update({
+  await prisma.client.updateMany({
     where: { id },
     data: { active },
   });
@@ -112,7 +116,7 @@ export async function deleteClient(id: string): Promise<ActionResult> {
   }
 
   try {
-    await prisma.client.delete({ where: { id } });
+    await prisma.client.deleteMany({ where: { id } });
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&

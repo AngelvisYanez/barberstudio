@@ -11,6 +11,7 @@ import {
 } from "@/lib/action-utils";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireTenantId } from "@/lib/tenant";
 
 const createServiceSchema = z.object({
   name: z.string().trim().min(1, "El nombre es obligatorio").max(120),
@@ -70,8 +71,10 @@ export async function createService(
   const { name, description, price, durationMinutes } = parsed.data;
 
   try {
+    const tenantId = await requireTenantId();
     await prisma.service.create({
       data: {
+        tenantId,
         name,
         description: description || null,
         price,
@@ -104,12 +107,12 @@ export async function updateServiceActive(
     return { success: false, error: firstZodError(parsed) };
   }
 
-  const existing = await prisma.service.findUnique({ where: { id } });
+  const existing = await prisma.service.findFirst({ where: { id } });
   if (!existing) {
     return { success: false, error: "Servicio no encontrado" };
   }
 
-  await prisma.service.update({
+  await prisma.service.updateMany({
     where: { id },
     data: { active },
   });
@@ -134,13 +137,13 @@ export async function updateService(
 
   const { id, name, description, price, durationMinutes } = parsed.data;
 
-  const existing = await prisma.service.findUnique({ where: { id } });
+  const existing = await prisma.service.findFirst({ where: { id } });
   if (!existing) {
     return { success: false, error: "Servicio no encontrado" };
   }
 
   try {
-    await prisma.service.update({
+    await prisma.service.updateMany({
       where: { id },
       data: {
         name,
@@ -182,7 +185,7 @@ export async function deleteService(id: string): Promise<ActionResult> {
   }
 
   try {
-    await prisma.service.delete({ where: { id } });
+    await prisma.service.deleteMany({ where: { id } });
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&

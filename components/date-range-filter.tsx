@@ -53,40 +53,42 @@ export function DateRangeFilter({ defaultValue }: Props) {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <div className="flex flex-wrap items-center gap-1">
+    <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+      <div className="flex max-w-full gap-1 overflow-x-auto pb-0.5 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible [&::-webkit-scrollbar]:hidden">
         {PERIOD_PRESETS.map((period) => (
           <Button
             key={period.value}
             type="button"
             size="sm"
             variant={activePeriod === period.value ? "default" : "outline"}
-            className="h-9"
+            className="h-11 shrink-0 sm:h-9"
             onClick={() => applyPeriod(period.value)}
           >
             {period.label}
           </Button>
         ))}
       </div>
-      <Input
-        key={`from-${defaultValue.from}`}
-        type="date"
-        aria-label="Desde"
-        defaultValue={defaultValue.from}
-        onChange={(event) => update("from", event.target.value)}
-        className="h-9 w-fit"
-      />
-      <span className="text-sm text-muted-foreground" aria-hidden="true">
-        —
-      </span>
-      <Input
-        key={`to-${defaultValue.to}`}
-        type="date"
-        aria-label="Hasta"
-        defaultValue={defaultValue.to}
-        onChange={(event) => update("to", event.target.value)}
-        className="h-9 w-fit"
-      />
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:flex">
+        <Input
+          key={`from-${defaultValue.from}`}
+          type="date"
+          aria-label="Desde"
+          defaultValue={defaultValue.from}
+          onChange={(event) => update("from", event.target.value)}
+          className="h-11 w-full min-w-0 sm:h-9 sm:w-[9.25rem]"
+        />
+        <span className="text-sm text-muted-foreground" aria-hidden="true">
+          —
+        </span>
+        <Input
+          key={`to-${defaultValue.to}`}
+          type="date"
+          aria-label="Hasta"
+          defaultValue={defaultValue.to}
+          onChange={(event) => update("to", event.target.value)}
+          className="h-11 w-full min-w-0 sm:h-9 sm:w-[9.25rem]"
+        />
+      </div>
     </div>
   );
 }

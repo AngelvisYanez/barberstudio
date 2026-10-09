@@ -64,7 +64,7 @@ export default async function OwnerDrawsPage({
           description="Gastos de hogar o personales. No se restan del balance operativo de la barbería."
           submitLabel="Registrar retiro"
         />
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <h2 className="text-lg font-semibold capitalize">
               {singleDay ? "Retiros del día" : "Retiros del período"}

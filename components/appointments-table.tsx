@@ -32,6 +32,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  desktopTableClass,
+  MobileRecord,
+  MobileRecordList,
+} from "@/components/mobile-record";
 import { formatMoney } from "@/lib/money";
 
 type Props = {
@@ -134,7 +139,62 @@ export function AppointmentsTable({ appointments }: Props) {
           </p>
         ) : (
           <>
-          <div className="overflow-x-auto rounded-lg border">
+          <MobileRecordList>
+            {pagination.pageItems.map((appointment) => {
+              const startsAt = new Date(appointment.startsAt);
+              return (
+                <MobileRecord
+                  key={appointment.id}
+                  title={appointment.clientName}
+                  meta={`${format(startsAt, "dd/MM/yyyy HH:mm")} · ${appointment.barberName} · ${appointment.serviceName}`}
+                  aside={
+                    <div className="grid justify-items-end gap-1">
+                      <span className="font-medium tabular-nums">
+                        {formatMoney(appointment.servicePrice)}
+                      </span>
+                      <Badge variant={statusVariant(appointment.status)}>
+                        {STATUS_LABELS[appointment.status]}
+                      </Badge>
+                    </div>
+                  }
+                  actions={
+                    <>
+                      {STATUS_ACTIONS.filter(
+                        (action) => action.status !== appointment.status,
+                      ).map((action) => (
+                        <Button
+                          key={action.status}
+                          variant="outline"
+                          size="sm"
+                          disabled={pendingId === appointment.id}
+                          onClick={() =>
+                            handleStatus(appointment, action.status)
+                          }
+                        >
+                          {action.label}
+                        </Button>
+                      ))}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDelete(appointment)}
+                        disabled={pendingId === appointment.id}
+                        className="text-muted-foreground hover:text-destructive"
+                        aria-label="Eliminar cita"
+                      >
+                        {pendingId === appointment.id ? (
+                          <LoaderIcon className="size-4 animate-spin" />
+                        ) : (
+                          <Trash2Icon className="size-4" />
+                        )}
+                      </Button>
+                    </>
+                  }
+                />
+              );
+            })}
+          </MobileRecordList>
+          <div className={desktopTableClass}>
             <Table>
               <TableHeader>
                 <TableRow>

@@ -35,7 +35,7 @@ export default async function DashboardPage({
     <>
       <SiteHeader title="Dashboard" />
       <div className="flex flex-1 flex-col gap-4 p-4 md:gap-6 md:p-6">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <h2 className="text-lg font-semibold capitalize">
               {singleDay ? "Balance del día" : "Balance del período"}

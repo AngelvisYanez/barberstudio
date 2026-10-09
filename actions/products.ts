@@ -11,6 +11,7 @@ import {
 } from "@/lib/action-utils";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireTenantId } from "@/lib/tenant";
 
 const createProductSchema = z.object({
   name: z.string().trim().min(1, "El nombre es obligatorio").max(120),
@@ -87,8 +88,10 @@ export async function createProduct(
     parsed.data;
 
   try {
+    const tenantId = await requireTenantId();
     await prisma.product.create({
       data: {
+        tenantId,
         name,
         sku: sku || null,
         description: description || null,
@@ -125,12 +128,12 @@ export async function updateProductActive(
     return { success: false, error: firstZodError(parsed) };
   }
 
-  const existing = await prisma.product.findUnique({ where: { id } });
+  const existing = await prisma.product.findFirst({ where: { id } });
   if (!existing) {
     return { success: false, error: "Producto no encontrado" };
   }
 
-  await prisma.product.update({
+  await prisma.product.updateMany({
     where: { id },
     data: { active },
   });
@@ -165,13 +168,13 @@ export async function updateProduct(
     minStock,
   } = parsed.data;
 
-  const existing = await prisma.product.findUnique({ where: { id } });
+  const existing = await prisma.product.findFirst({ where: { id } });
   if (!existing) {
     return { success: false, error: "Producto no encontrado" };
   }
 
   try {
-    await prisma.product.update({
+    await prisma.product.updateMany({
       where: { id },
       data: {
         name,
@@ -217,7 +220,7 @@ export async function deleteProduct(id: string): Promise<ActionResult> {
   }
 
   try {
-    await prisma.product.delete({ where: { id } });
+    await prisma.product.deleteMany({ where: { id } });
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&

@@ -22,7 +22,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useRouter } from "next/navigation";
-import { roleLabel, type SessionUser } from "@/lib/auth-shared";
+import { isPlatformAdmin, roleLabel, type SessionUser } from "@/lib/auth-shared";
 import {
   EllipsisVerticalIcon,
   LogOutIcon,
@@ -90,7 +90,7 @@ export function NavUser({ user }: { user: SessionUser }) {
               </DropdownMenuLabel>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            {user.role === "ADMIN" ? (
+            {isPlatformAdmin(user.role) ? (
               <DropdownMenuGroup>
                 <DropdownMenuItem
                   onClick={() => {
@@ -110,7 +110,7 @@ export function NavUser({ user }: { user: SessionUser }) {
                 </DropdownMenuItem>
               </DropdownMenuGroup>
             ) : null}
-            {user.role === "ADMIN" ? <DropdownMenuSeparator /> : null}
+            {isPlatformAdmin(user.role) ? <DropdownMenuSeparator /> : null}
             <DropdownMenuItem
               onClick={() => {
                 void logoutAction();

@@ -6,6 +6,8 @@ import { z } from "zod";
 
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireTenantId } from "@/lib/tenant";
+import { requireTenantId } from "@/lib/tenant";
 
 const createAccountSchema = z.object({
   name: z.string().trim().min(1, "El nombre es obligatorio").max(120),
@@ -92,8 +94,10 @@ export async function createAccountReceivable(
 
   const { name, description, amount, dueDate, notes } = parsed.data;
 
+  const tenantId = await requireTenantId();
   await prisma.accountReceivable.create({
     data: {
+      tenantId,
       clientName: name,
       description: description || null,
       amount,
@@ -125,8 +129,10 @@ export async function createAccountPayable(
     return { success: false, error: "Categoría de gasto no válida" };
   }
 
+  const tenantId = await requireTenantId();
   await prisma.accountPayable.create({
     data: {
+      tenantId,
       supplierName: name,
       description: description || null,
       amount,
@@ -224,7 +230,7 @@ export async function recordPaymentReceivable(
 
   const { id, amount } = parsed.data;
 
-  const account = await prisma.accountReceivable.findUnique({ where: { id } });
+  const account = await prisma.accountReceivable.findFirst({ where: { id } });
   if (!account) {
     return { success: false, error: "Cuenta no encontrada" };
   }
@@ -240,7 +246,7 @@ export async function recordPaymentReceivable(
     };
   }
 
-  await prisma.accountReceivable.update({
+  await prisma.accountReceivable.updateMany({
     where: { id },
     data: {
       paidAmount: newPaid,
@@ -264,7 +270,7 @@ export async function recordPaymentPayable(
 
   const { id, amount } = parsed.data;
 
-  const account = await prisma.accountPayable.findUnique({ where: { id } });
+  const account = await prisma.accountPayable.findFirst({ where: { id } });
   if (!account) {
     return { success: false, error: "Cuenta no encontrada" };
   }
@@ -283,7 +289,7 @@ export async function recordPaymentPayable(
   const paidAt = new Date();
 
   await prisma.$transaction([
-    prisma.accountPayable.update({
+    prisma.accountPayable.updateMany({
       where: { id },
       data: {
         paidAmount: newPaid,
@@ -292,6 +298,7 @@ export async function recordPaymentPayable(
     }),
     prisma.accountPayablePayment.create({
       data: {
+        tenantId: account.tenantId,
         accountId: id,
         amount,
         paidAt,
@@ -319,7 +326,7 @@ export async function updateAccountReceivable(
   }
 
   const { id, name, description, amount, dueDate, notes } = parsed.data;
-  const account = await prisma.accountReceivable.findUnique({ where: { id } });
+  const account = await prisma.accountReceivable.findFirst({ where: { id } });
   if (!account) {
     return { success: false, error: "Cuenta no encontrada" };
   }
@@ -332,7 +339,7 @@ export async function updateAccountReceivable(
     };
   }
 
-  await prisma.accountReceivable.update({
+  await prisma.accountReceivable.updateMany({
     where: { id },
     data: {
       clientName: name,
@@ -364,7 +371,7 @@ export async function updateAccountPayable(
 
   const { id, name, description, amount, dueDate, notes, categoryId } =
     parsed.data;
-  const account = await prisma.accountPayable.findUnique({ where: { id } });
+  const account = await prisma.accountPayable.findFirst({ where: { id } });
   if (!account) {
     return { success: false, error: "Cuenta no encontrada" };
   }
@@ -384,7 +391,7 @@ export async function updateAccountPayable(
     };
   }
 
-  await prisma.accountPayable.update({
+  await prisma.accountPayable.updateMany({
     where: { id },
     data: {
       supplierName: name,
@@ -407,7 +414,7 @@ export async function deleteAccountReceivable(
   if (!id) {
     return { success: false, error: "ID inválido" };
   }
-  await prisma.accountReceivable.delete({ where: { id } });
+  await prisma.accountReceivable.deleteMany({ where: { id } });
   revalidatePath("/accounts-receivable");
   return { success: true };
 }
@@ -418,7 +425,7 @@ export async function deleteAccountPayable(
   if (!id) {
     return { success: false, error: "ID inválido" };
   }
-  await prisma.accountPayable.delete({ where: { id } });
+  await prisma.accountPayable.deleteMany({ where: { id } });
   revalidatePath("/accounts-payable");
   return { success: true };
 }

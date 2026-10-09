@@ -5,12 +5,15 @@ import type { UserRole } from "@prisma/client";
 import {
   SESSION_COOKIE,
   SESSION_MAX_AGE,
+  TENANT_COOKIE,
   type SessionUser,
 } from "@/lib/auth-shared";
 
 export {
   SESSION_COOKIE,
+  TENANT_COOKIE,
   SESSION_MAX_AGE,
+  isPlatformAdmin,
   roleLabel,
   type SessionUser,
 } from "@/lib/auth-shared";
@@ -29,6 +32,7 @@ export async function createSessionToken(user: SessionUser): Promise<string> {
     email: user.email,
     name: user.name,
     role: user.role,
+    tenantId: user.tenantId,
   })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
@@ -55,6 +59,7 @@ export async function verifySessionToken(
       email: payload.email,
       name: payload.name,
       role: payload.role as UserRole,
+      tenantId: typeof payload.tenantId === "string" ? payload.tenantId : null,
     };
   } catch {
     return null;
@@ -75,6 +80,7 @@ export async function setSessionCookie(token: string) {
 export async function clearSessionCookie() {
   const cookieStore = await cookies();
   cookieStore.delete(SESSION_COOKIE);
+  cookieStore.delete(TENANT_COOKIE);
 }
 
 export async function getSession(): Promise<SessionUser | null> {
@@ -94,7 +100,7 @@ export async function requireSession(): Promise<SessionUser> {
 
 export async function requireAdmin(): Promise<SessionUser> {
   const session = await requireSession();
-  if (session.role !== "ADMIN") {
+  if (session.role !== "ADMIN" && session.role !== "SUPERADMIN") {
     throw new Error("Sin permisos de administrador");
   }
   return session;

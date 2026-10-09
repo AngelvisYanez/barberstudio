@@ -24,6 +24,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
+  desktopTableClass,
+  MobileRecord,
+  MobileRecordList,
+} from "@/components/mobile-record";
+import {
   Table,
   TableBody,
   TableCell,
@@ -97,7 +102,47 @@ export function ClientsTable({ clients }: Props) {
           </p>
         ) : (
           <>
-          <div className="overflow-x-auto rounded-lg border">
+          <MobileRecordList>
+            {pagination.pageItems.map((client) => (
+              <MobileRecord
+                key={client.id}
+                title={client.name}
+                meta={client.phone || client.email || "Sin contacto"}
+                aside={
+                  <Badge variant={client.active ? "default" : "secondary"}>
+                    {client.active ? "Activo" : "Inactivo"}
+                  </Badge>
+                }
+                actions={
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={pendingId === client.id}
+                      onClick={() => handleToggleActive(client)}
+                    >
+                      {client.active ? "Desactivar" : "Activar"}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDelete(client)}
+                      disabled={pendingId === client.id}
+                      className="text-muted-foreground hover:text-destructive"
+                      aria-label="Eliminar cliente"
+                    >
+                      {pendingId === client.id ? (
+                        <LoaderIcon className="size-4 animate-spin" />
+                      ) : (
+                        <Trash2Icon className="size-4" />
+                      )}
+                    </Button>
+                  </>
+                }
+              />
+            ))}
+          </MobileRecordList>
+          <div className={desktopTableClass}>
             <Table>
               <TableHeader>
                 <TableRow>

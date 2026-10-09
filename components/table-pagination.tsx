@@ -106,7 +106,7 @@ export function TablePagination({
           <SelectTrigger
             id={pageSizeId}
             size="sm"
-            className="h-8 w-[4.5rem]"
+            className="h-11 w-[4.5rem] sm:h-8"
             aria-label="Filas por página"
           >
             <SelectValue />
@@ -124,12 +124,12 @@ export function TablePagination({
         </span>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="grid w-full grid-cols-[auto_1fr_auto] items-center gap-2 sm:flex sm:w-auto">
         <Button
           type="button"
           variant="outline"
           size="sm"
-          className="h-8"
+          className="h-11 sm:h-8"
           disabled={!canPreviousPage}
           onClick={() => setPageIndex(pageIndex - 1)}
           aria-label="Página anterior"
@@ -137,14 +137,14 @@ export function TablePagination({
           <ChevronLeftIcon className="size-4" />
           Anterior
         </Button>
-        <span className="min-w-24 text-center text-sm text-muted-foreground">
+        <span className="min-w-0 text-center text-sm text-muted-foreground">
           Página {pageIndex + 1} de {pageCount}
         </span>
         <Button
           type="button"
           variant="outline"
           size="sm"
-          className="h-8"
+          className="h-11 sm:h-8"
           disabled={!canNextPage}
           onClick={() => setPageIndex(pageIndex + 1)}
           aria-label="Página siguiente"

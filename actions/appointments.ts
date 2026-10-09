@@ -10,6 +10,7 @@ import {
   firstZodError,
 } from "@/lib/action-utils";
 import { prisma } from "@/lib/prisma";
+import { requireTenantId } from "@/lib/tenant";
 
 const createAppointmentSchema = z.object({
   clientId: z.string().min(1, "Selecciona un cliente"),
@@ -66,9 +67,9 @@ export async function createAppointment(
   const { clientId, barberId, serviceId, startsAt, notes } = parsed.data;
 
   const [client, barber, service] = await Promise.all([
-    prisma.client.findUnique({ where: { id: clientId } }),
-    prisma.barber.findUnique({ where: { id: barberId } }),
-    prisma.service.findUnique({ where: { id: serviceId } }),
+    prisma.client.findFirst({ where: { id: clientId } }),
+    prisma.barber.findFirst({ where: { id: barberId } }),
+    prisma.service.findFirst({ where: { id: serviceId } }),
   ]);
 
   if (!client || !client.active) {
@@ -85,8 +86,10 @@ export async function createAppointment(
     startsAt.getTime() + service.durationMinutes * 60_000,
   );
 
+  const tenantId = await requireTenantId();
   await prisma.appointment.create({
     data: {
+      tenantId,
       clientId,
       barberId,
       serviceId,
@@ -109,12 +112,12 @@ export async function updateAppointmentStatus(
     return { success: false, error: firstZodError(parsed) };
   }
 
-  const existing = await prisma.appointment.findUnique({ where: { id } });
+  const existing = await prisma.appointment.findFirst({ where: { id } });
   if (!existing) {
     return { success: false, error: "Cita no encontrada" };
   }
 
-  await prisma.appointment.update({
+  await prisma.appointment.updateMany({
     where: { id },
     data: { status },
   });
@@ -128,12 +131,12 @@ export async function deleteAppointment(id: string): Promise<ActionResult> {
     return { success: false, error: "ID inválido" };
   }
 
-  const existing = await prisma.appointment.findUnique({ where: { id } });
+  const existing = await prisma.appointment.findFirst({ where: { id } });
   if (!existing) {
     return { success: false, error: "Cita no encontrada" };
   }
 
-  await prisma.appointment.delete({ where: { id } });
+  await prisma.appointment.deleteMany({ where: { id } });
   revalidatePath("/appointments");
   return { success: true };
 }

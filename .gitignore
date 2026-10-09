@@ -43,3 +43,10 @@ next-env.d.ts
 /app/generated/prisma
 
 .vercel
+
+# android
+/mobile/android/.gradle/
+/mobile/android/build/
+/mobile/android/app/build/
+/mobile/android/local.properties
+/mobile/dist/

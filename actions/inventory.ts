@@ -59,7 +59,7 @@ export async function recordInventoryMovement(
 
   try {
     await prisma.$transaction(async (tx) => {
-      const product = await tx.product.findUnique({ where: { id: productId } });
+      const product = await tx.product.findFirst({ where: { id: productId } });
       if (!product) {
         throw new Error("PRODUCT_NOT_FOUND");
       }
@@ -76,7 +76,7 @@ export async function recordInventoryMovement(
         nextStock = quantity;
       }
 
-      await tx.product.update({
+      await tx.product.updateMany({
         where: { id: productId },
         data: { stock: nextStock },
       });
@@ -87,6 +87,7 @@ export async function recordInventoryMovement(
           type,
           quantity,
           note: note || null,
+          tenantId: product.tenantId,
         },
       });
     });

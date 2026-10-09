@@ -7,6 +7,7 @@ import { z } from "zod";
 import { requireAdmin, requireSession } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
+import { requireTenantId } from "@/lib/tenant";
 
 export type UserActionResult =
   | { success: true }
@@ -22,18 +23,20 @@ export type SerializedUser = {
   updatedAt: string;
 };
 
+const tenantRole = z.enum(["ADMIN", "MANAGER", "STAFF"]);
+
 const createUserSchema = z.object({
   name: z.string().trim().min(2, "Nombre muy corto").max(80),
   email: z.string().trim().email("Correo inválido"),
   password: z.string().min(6, "Mínimo 6 caracteres").max(72),
-  role: z.enum(UserRole),
+  role: tenantRole,
 });
 
 const updateUserSchema = z.object({
   id: z.string().min(1),
   name: z.string().trim().min(2, "Nombre muy corto").max(80),
   email: z.string().trim().email("Correo inválido"),
-  role: z.enum(UserRole),
+  role: tenantRole,
   active: z.boolean(),
   password: z
     .string()
@@ -65,7 +68,9 @@ function serializeUser(user: {
 
 export async function getUsers(): Promise<SerializedUser[]> {
   await requireAdmin();
+  const tenantId = await requireTenantId();
   const users = await prisma.user.findMany({
+    where: { tenantId },
     orderBy: [{ role: "asc" }, { name: "asc" }],
   });
   return users.map(serializeUser);
@@ -74,8 +79,10 @@ export async function getUsers(): Promise<SerializedUser[]> {
 export async function createUser(
   input: z.infer<typeof createUserSchema>,
 ): Promise<UserActionResult> {
+  let tenantId: string;
   try {
     await requireAdmin();
+    tenantId = await requireTenantId();
   } catch {
     return { success: false, error: "Sin permisos de administrador" };
   }
@@ -99,6 +106,7 @@ export async function createUser(
       name: parsed.data.name,
       email,
       role: parsed.data.role,
+      tenantId,
       passwordHash: await hashPassword(parsed.data.password),
     },
   });
@@ -110,8 +118,10 @@ export async function createUser(
 export async function updateUser(
   input: z.infer<typeof updateUserSchema>,
 ): Promise<UserActionResult> {
+  let tenantId: string;
   try {
     await requireAdmin();
+    tenantId = await requireTenantId();
   } catch {
     return { success: false, error: "Sin permisos de administrador" };
   }
@@ -149,6 +159,13 @@ export async function updateUser(
     data.passwordHash = await hashPassword(parsed.data.password);
   }
 
+  const targetUser = await prisma.user.findFirst({
+    where: { id: parsed.data.id, tenantId },
+  });
+  if (!targetUser || targetUser.role === "SUPERADMIN") {
+    return { success: false, error: "Usuario no encontrado" };
+  }
+
   await prisma.user.update({
     where: { id: parsed.data.id },
     data,
@@ -160,8 +177,10 @@ export async function updateUser(
 
 export async function deleteUser(id: string): Promise<UserActionResult> {
   let session;
+  let tenantId: string;
   try {
     session = await requireAdmin();
+    tenantId = await requireTenantId();
   } catch {
     return { success: false, error: "Sin permisos de administrador" };
   }
@@ -171,9 +190,9 @@ export async function deleteUser(id: string): Promise<UserActionResult> {
   }
 
   const admins = await prisma.user.count({
-    where: { role: "ADMIN", active: true },
+    where: { tenantId, role: "ADMIN", active: true },
   });
-  const target = await prisma.user.findUnique({ where: { id } });
+  const target = await prisma.user.findFirst({ where: { id, tenantId } });
   if (!target) {
     return { success: false, error: "Usuario no encontrado" };
   }
@@ -191,12 +210,14 @@ export async function deleteUser(id: string): Promise<UserActionResult> {
 
 export async function getAuthOverview() {
   const session = await requireSession();
+  const tenantId = await requireTenantId();
+  const where = { tenantId };
   const [total, active, admins, managers, staff] = await Promise.all([
-    prisma.user.count(),
-    prisma.user.count({ where: { active: true } }),
-    prisma.user.count({ where: { role: "ADMIN" } }),
-    prisma.user.count({ where: { role: "MANAGER" } }),
-    prisma.user.count({ where: { role: "STAFF" } }),
+    prisma.user.count({ where }),
+    prisma.user.count({ where: { ...where, active: true } }),
+    prisma.user.count({ where: { ...where, role: "ADMIN" } }),
+    prisma.user.count({ where: { ...where, role: "MANAGER" } }),
+    prisma.user.count({ where: { ...where, role: "STAFF" } }),
   ]);
 
   return {

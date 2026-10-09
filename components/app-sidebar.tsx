@@ -13,6 +13,7 @@ import {
   ReceiptIcon,
   ScissorsIcon,
   SettingsIcon,
+  StoreIcon,
   ShieldCheckIcon,
   ShoppingBagIcon,
   UserRoundCogIcon,
@@ -32,7 +33,30 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import type { SessionUser } from "@/lib/auth-shared";
+import { TenantSwitcher, type TenantOption } from "@/components/tenant-switcher";
+import { isPlatformAdmin, type SessionUser } from "@/lib/auth-shared";
+
+export type { TenantOption };
+
+export function getNavGroups(user: SessionUser) {
+  return isPlatformAdmin(user.role)
+    ? navGroups.map((group) =>
+        group.label === "Administración" && user.role === "SUPERADMIN"
+          ? {
+              ...group,
+              items: [
+                {
+                  title: "Barberías",
+                  url: "/tenants",
+                  icon: <StoreIcon />,
+                },
+                ...group.items,
+              ],
+            }
+          : group,
+      )
+    : navGroups.filter((group) => group.label !== "Administración");
+}
 
 const navGroups = [
   {
@@ -134,16 +158,17 @@ const navGroups = [
 
 export function AppSidebar({
   user,
+  tenants = [],
+  activeTenant = null,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
   user: SessionUser;
+  tenants?: TenantOption[];
+  activeTenant?: TenantOption | null;
 }) {
   const pathname = usePathname();
 
-  const groups =
-    user.role === "ADMIN"
-      ? navGroups
-      : navGroups.filter((group) => group.label !== "Administración");
+  const groups = getNavGroups(user);
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -166,7 +191,7 @@ export function AppSidebar({
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">Barber Studio</span>
                 <span className="truncate text-xs text-muted-foreground">
-                  Gestión integral
+                  {activeTenant?.name ?? "Gestión integral"}
                 </span>
               </div>
             </SidebarMenuButton>
@@ -174,6 +199,9 @@ export function AppSidebar({
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent className="overflow-y-auto">
+        {user.role === "SUPERADMIN" ? (
+          <TenantSwitcher tenants={tenants} activeTenantId={activeTenant?.id ?? null} />
+        ) : null}
         <NavMain groups={groups} pathname={pathname} />
       </SidebarContent>
       <SidebarFooter>

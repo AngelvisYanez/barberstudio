@@ -11,11 +11,12 @@ type Props = {
 
 export function ExportButtons({ xlsxUrl, pdfUrl }: Props) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="grid w-full grid-cols-2 gap-2 md:flex md:w-auto md:items-center">
       <Button
         variant="outline"
         size="sm"
         nativeButton={false}
+        className="h-11 md:h-7"
         render={<a href={xlsxUrl} />}
       >
         <FileSpreadsheetIcon data-icon="inline-start" />
@@ -25,6 +26,7 @@ export function ExportButtons({ xlsxUrl, pdfUrl }: Props) {
         variant="outline"
         size="sm"
         nativeButton={false}
+        className="h-11 md:h-7"
         render={<a href={pdfUrl} />}
       >
         <FileTextIcon data-icon="inline-start" />
