@@ -7,7 +7,6 @@ import { z } from "zod";
 import { type ActionResult, firstZodError } from "@/lib/action-utils";
 import { prisma } from "@/lib/prisma";
 import { requireTenantId } from "@/lib/tenant";
-import { requireTenantId } from "@/lib/tenant";
 
 const createClientSchema = z.object({
   name: z.string().trim().min(1, "El nombre es obligatorio").max(120),

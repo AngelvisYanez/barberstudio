@@ -7,7 +7,6 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireTenantId } from "@/lib/tenant";
-import { requireTenantId } from "@/lib/tenant";
 
 const createAccountSchema = z.object({
   name: z.string().trim().min(1, "El nombre es obligatorio").max(120),
