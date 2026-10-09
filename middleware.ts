@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
 const SESSION_COOKIE = "barberstudio_session";
+const TENANT_COOKIE = "barberstudio_tenant";
 
 const publicPaths = ["/login"];
 
@@ -59,7 +60,9 @@ export async function middleware(request: NextRequest) {
   }
 
   if (isAuthenticated && pathname === "/login") {
-    const next = role === "SUPERADMIN" ? "/tenants" : "/";
+    const activeTenant = request.cookies.get(TENANT_COOKIE)?.value;
+    const next =
+      role === "SUPERADMIN" && !activeTenant ? "/tenants" : "/";
     return NextResponse.redirect(new URL(next, request.url));
   }
 

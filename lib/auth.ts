@@ -77,6 +77,17 @@ export async function setSessionCookie(token: string) {
   });
 }
 
+export async function setTenantCookie(tenantId: string) {
+  const cookieStore = await cookies();
+  cookieStore.set(TENANT_COOKIE, tenantId, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: SESSION_MAX_AGE,
+  });
+}
+
 export async function clearSessionCookie() {
   const cookieStore = await cookies();
   cookieStore.delete(SESSION_COOKIE);

@@ -8,6 +8,7 @@ import {
   createSessionToken,
   getSession,
   setSessionCookie,
+  setTenantCookie,
 } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/password";
@@ -15,6 +16,7 @@ import { verifyPassword } from "@/lib/password";
 const loginSchema = z.object({
   email: z.string().email("Correo inválido"),
   password: z.string().min(1, "Ingresa tu contraseña"),
+  tenantId: z.string().min(1, "Elige la barbería"),
 });
 
 export type AuthActionResult =
@@ -54,6 +56,20 @@ export async function loginAction(
     return { success: false, error: "Credenciales incorrectas" };
   }
 
+  const tenant = await prisma.tenant.findFirst({
+    where: { id: parsed.data.tenantId, active: true },
+  });
+  if (!tenant) {
+    return { success: false, error: "Elige una barbería activa" };
+  }
+
+  if (user.role !== "SUPERADMIN" && user.tenantId !== tenant.id) {
+    return {
+      success: false,
+      error: "Esta cuenta no pertenece a esa barbería",
+    };
+  }
+
   const token = await createSessionToken({
     id: user.id,
     email: user.email,
@@ -62,6 +78,7 @@ export async function loginAction(
     tenantId: user.tenantId,
   });
   await setSessionCookie(token);
+  await setTenantCookie(tenant.id);
 
   return { success: true };
 }
