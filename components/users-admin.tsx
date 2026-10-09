@@ -176,7 +176,13 @@ export function UsersAdmin({ users }: { users: SerializedUser[] }) {
                 }))}
                 value={role}
                 onValueChange={(value) => {
-                  if (value) setRole(value as UserRole);
+                  if (
+                    value === "ADMIN" ||
+                    value === "MANAGER" ||
+                    value === "STAFF"
+                  ) {
+                    setRole(value);
+                  }
                 }}
               >
                 <SelectTrigger className="w-full">
