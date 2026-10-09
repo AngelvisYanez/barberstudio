@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 import { getSession } from "@/lib/auth";
 import { TENANT_COOKIE } from "@/lib/auth-shared";
@@ -16,7 +17,7 @@ export async function getActiveTenantId(): Promise<string | null> {
 export async function requireTenantId(): Promise<string> {
   const tenantId = await getActiveTenantId();
   if (!tenantId) {
-    throw new Error("Selecciona una barbería");
+    redirect("/tenants");
   }
   return tenantId;
 }

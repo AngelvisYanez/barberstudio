@@ -32,12 +32,14 @@ export async function middleware(request: NextRequest) {
 
   let isAuthenticated = false;
   let role: string | null = null;
+  let tenantId: string | null = null;
 
   if (token && secret) {
     try {
       const { payload } = await jwtVerify(token, secret);
       isAuthenticated = typeof payload.id === "string";
       role = typeof payload.role === "string" ? payload.role : null;
+      tenantId = typeof payload.tenantId === "string" ? payload.tenantId : null;
     } catch {
       isAuthenticated = false;
     }
@@ -49,8 +51,16 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  if (isAuthenticated && role !== "SUPERADMIN" && !tenantId) {
+    const loginUrl = new URL("/login", request.url);
+    const response = NextResponse.redirect(loginUrl);
+    response.cookies.delete(SESSION_COOKIE);
+    return response;
+  }
+
   if (isAuthenticated && pathname === "/login") {
-    return NextResponse.redirect(new URL("/", request.url));
+    const next = role === "SUPERADMIN" ? "/tenants" : "/";
+    return NextResponse.redirect(new URL(next, request.url));
   }
 
   if (
