@@ -116,8 +116,10 @@ export function MobileNav({
             {user.role === "SUPERADMIN" ? (
               <div className="border-b py-3">
                 <TenantSwitcher
+                  variant="list"
                   tenants={tenants}
                   activeTenantId={activeTenant?.id ?? null}
+                  onSwitched={() => setMoreOpen(false)}
                 />
               </div>
             ) : null}

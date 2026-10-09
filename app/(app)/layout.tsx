@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { ActiveTenantProvider } from "@/components/active-tenant";
 import { AppSidebar, type TenantOption } from "@/components/app-sidebar";
 import { MobileNav } from "@/components/mobile-nav";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
@@ -65,7 +66,9 @@ export default async function AppLayout({
           activeTenant={activeTenant}
         />
       </div>
-      <SidebarInset>{children}</SidebarInset>
+      <SidebarInset>
+        <ActiveTenantProvider tenant={activeTenant}>{children}</ActiveTenantProvider>
+      </SidebarInset>
       <MobileNav
         user={user}
         tenants={tenants}

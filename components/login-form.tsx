@@ -61,16 +61,16 @@ export function LoginForm({ tenants }: { tenants: LoginTenant[] }) {
   }
 
   return (
-    <div className="flex flex-col items-center gap-6">
+    <div className="m-auto flex w-full max-w-md flex-col items-center gap-6">
       <Image
         src="/logo-barberstudio.jpg"
         alt="Barber Studio"
         width={96}
         height={96}
-        className="size-24 rounded-xl object-cover ring-1 ring-foreground/10"
+        className="size-16 rounded-xl object-cover ring-1 ring-foreground/10 sm:size-24"
         priority
       />
-      <Card className="w-full max-w-md border-foreground/10 bg-card/90 backdrop-blur">
+      <Card className="w-full border-foreground/10 bg-card/90 backdrop-blur">
       <CardHeader className="items-center text-center">
         <CardTitle className="text-xl">Barber Studio</CardTitle>
         <CardDescription>
@@ -86,7 +86,11 @@ export function LoginForm({ tenants }: { tenants: LoginTenant[] }) {
                 No hay barberías disponibles.
               </p>
             ) : (
-              <div className="grid gap-2" role="radiogroup" aria-label="Barbería">
+              <div
+                className="grid max-h-[40dvh] gap-2 overflow-y-auto"
+                role="radiogroup"
+                aria-label="Barbería"
+              >
                 {tenants.map((tenant) => {
                   const selected = tenant.id === tenantId;
                   return (
@@ -103,7 +107,7 @@ export function LoginForm({ tenants }: { tenants: LoginTenant[] }) {
                           : "border-input bg-background hover:bg-muted",
                       )}
                     >
-                      {tenant.name}
+                      <span className="truncate">{tenant.name}</span>
                     </button>
                   );
                 })}

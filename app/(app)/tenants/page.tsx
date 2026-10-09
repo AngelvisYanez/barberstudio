@@ -65,14 +65,14 @@ export default async function TenantsPage() {
                     {!tenant.active ? " · inactiva" : ""}
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="flex flex-wrap items-center justify-between gap-3">
+                <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm text-muted-foreground">
                     {tenant._count.users} usuarios · {tenant._count.barbers}{" "}
                     barberos · {tenant._count.clients} clientes
                   </p>
-                  <form action={enterTenant}>
+                  <form action={enterTenant} className="w-full sm:w-auto">
                     <input type="hidden" name="tenantId" value={tenant.id} />
-                    <Button type="submit" size="sm">
+                    <Button type="submit" className="h-11 w-full sm:w-auto">
                       Entrar
                     </Button>
                   </form>
